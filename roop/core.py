@@ -35,7 +35,7 @@ parser.add_argument('--all-faces', help='swap all faces in frame', dest='all_fac
 parser.add_argument('--max-memory', help='maximum amount of RAM in GB to be used', dest='max_memory', type=int)
 parser.add_argument('--cpu-cores', help='number of CPU cores to use', dest='cpu_cores', type=int, default=max(psutil.cpu_count() / 2, 1))
 parser.add_argument('--gpu-threads', help='number of threads to be use for the GPU', dest='gpu_threads', type=int, default=8)
-parser.add_argument('--gpu-vendor', help='choice your GPU vendor', dest='gpu_vendor', choices=['apple', 'amd', 'intel', 'nvidia'])
+parser.add_argument('--gpu-vendor', help='specify GPU vendor', dest='gpu_vendor', choices=['apple', 'amd', 'intel', 'nvidia'])
 
 args = parser.parse_known_args()[0]
 
@@ -176,8 +176,8 @@ def start(preview_callback = None):
         print("\n[WARNING] No face detected in source image. Please try with another one.\n")
         return
     if is_img(target_path):
-        if predict_image(target_path) > 0.85:
-            quit()
+#        if predict_image(target_path) > 0.85:
+#            quit()
         process_img(args.source_img, target_path, args.output_file)
         status("swap successful!")
         return
