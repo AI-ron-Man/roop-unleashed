@@ -60,6 +60,10 @@ def create_root(start: Callable, destroy: Callable) -> ctk.CTk:
     keep_frames_switch = ctk.CTkSwitch(root, text='Keep frames', variable=keep_frames_value, command=lambda: setattr(roop.globals, 'keep_frames', keep_frames_value.get()))
     keep_frames_switch.place(relx=0.1, rely=0.65)
 
+    enhance_value = ctk.BooleanVar(value=roop.globals.post_enhance)
+    enhance_switch = ctk.CTkSwitch(root, text='Post enhance images', variable=enhance_value, command=lambda: setattr(roop.globals, 'post_enhance', enhance_value.get()))
+    enhance_switch.place(relx=0.1, rely=0.7)
+
     keep_audio_value = ctk.BooleanVar(value=roop.globals.keep_audio)
     keep_audio_switch = ctk.CTkSwitch(root, text='Keep audio', variable=keep_audio_value, command=lambda: setattr(roop.globals, 'keep_audio', keep_audio_value.get()))
     keep_audio_switch.place(relx=0.6, rely=0.6)

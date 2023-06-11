@@ -186,9 +186,12 @@ def start() -> None:
         if 'face-swapper' in roop.globals.frame_processors:
             update_status('Swapping in progress...')
             roop.swapper.process_image(roop.globals.source_path, roop.globals.target_path, roop.globals.output_path)
-        if roop.globals.gpu_vendor == 'nvidia' and 'face-enhancer' in roop.globals.frame_processors:
+        if roop.globals.gpu_vendor == 'nvidia' and roop.globals.post_enhance:
             update_status('Enhancing in progress...')
-            roop.enhancer.process_image(roop.globals.source_path, roop.globals.target_path, roop.globals.output_path)
+            if 'face-swapper' in roop.globals.frame_processors:
+                roop.enhancer.process_image(roop.globals.source_path, roop.globals.output_path, roop.globals.output_path)
+            else:
+                roop.enhancer.process_image(roop.globals.source_path, roop.globals.target_path, roop.globals.output_path)
         if is_image(roop.globals.target_path):
             update_status('Processing to image succeed!')
         else:
@@ -209,7 +212,7 @@ def start() -> None:
     release_resources()
     # limit to one gpu thread
     roop.globals.gpu_threads = 1
-    if roop.globals.gpu_vendor == 'nvidia' and 'face-enhancer' in roop.globals.frame_processors:
+    if roop.globals.gpu_vendor == 'nvidia' and roop.globals.post_enhance:
         update_status('Enhancing in progress...')
         conditional_process_video(roop.globals.source_path, temp_frame_paths, roop.enhancer.process_video)
     release_resources()
