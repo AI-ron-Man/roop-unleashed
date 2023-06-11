@@ -5,10 +5,15 @@ import webbrowser
 from tkinter import filedialog
 from tkinter.filedialog import asksaveasfilename
 import threading
+import os
 
 from roop.utils import is_img
 
 max_preview_size = 800
+
+input_file_path = None
+target_file_path = None
+output_file_path = None
 
 
 def create_preview(parent):
@@ -87,9 +92,17 @@ def update_preview(frame):
     preview_image_frame.image = photo_img
 
 
+
 def select_face(select_face_handler: Callable[[str], None]):
     if select_face_handler:
-        path = filedialog.askopenfilename(title="Select a face")
+        initfolder = None
+        global input_file_path
+        if input_file_path is not None:
+            initfolder = os.path.dirname(input_file_path)
+        path = filedialog.askopenfilename(initialdir=initfolder, title="Select a face")
+        if not path:
+            return None
+        input_file_path = path
         preview_face(path)
         return select_face_handler(path)
     return None
@@ -110,7 +123,15 @@ def update_slider(get_video_frame, create_test_preview, video_path, frames_amoun
 
 
 def analyze_target(select_target_handler: Callable[[str], Tuple[int, Any]], target_path: tk.StringVar, frames_amount: tk.IntVar):    
-    path = filedialog.askopenfilename(title="Select a target")
+    global target_file_path
+    initfolder = None
+    if target_file_path is not None:
+        initfolder = os.path.dirname(target_file_path)
+    path = filedialog.askopenfilename(initialdir=initfolder, title="Select a target")
+    if not path:
+        return
+
+    target_file_path = path
     target_path.set(path)
     amount, frame = select_target_handler(path)
     frames_amount.set(amount)
@@ -124,13 +145,23 @@ def select_target(select_target_handler: Callable[[str], Tuple[int, Any]], targe
 
 
 def save_file(save_file_handler: Callable[[str], None], target_path: str):
-    filename, ext = 'output.mp4', '.mp4'
+    global output_file_path
+    initfolder = None
+    if output_file_path is not None:
+        initfolder = os.path.dirname(output_file_path)
+
+    ext = '.mp4'
 
     if is_img(target_path):
-        filename, ext = 'output.png', '.png'
+        ext = '.png'
 
     if save_file_handler:
-        return save_file_handler(asksaveasfilename(initialfile=filename, defaultextension=ext, filetypes=[("All Files","*.*"),("Videos","*.mp4")]))
+        savename, file_extension =os.path.splitext(os.path.basename(target_path))
+        savename += f'_swap{ext}'
+        path = asksaveasfilename(initialdir=initfolder, initialfile=savename, defaultextension=ext, filetypes=[("All Files","*.*"),("Videos","*.mp4")])
+        if path:
+            output_file_path = path
+            return save_file_handler(path)
     return None
 
 
@@ -217,12 +248,22 @@ def preview_face(path):
     face_label.image = photo_img
 
 
+
 def preview_target(frame):
     img = Image.fromarray(frame)
     img = img.resize((180, 180), Image.ANTIALIAS)
     photo_img = ImageTk.PhotoImage(img)
     target_label.configure(image=photo_img)
     target_label.image = photo_img
+
+
+def preview_result():
+    if is_img(output_file_path):
+        img = Image.open(output_file_path)
+        img = img.resize((180, 180), Image.ANTIALIAS)
+        photo_img = ImageTk.PhotoImage(img)
+        result_label.configure(image=photo_img)
+        result_label.image = photo_img
 
 
 def update_status_label(value):
@@ -242,10 +283,10 @@ def init(
     get_video_frame: Callable[[str, int], None],
     create_test_preview: Callable[[int], Any],
 ):
-    global window, preview, preview_visible, face_label, target_label, status_label
+    global window, preview, preview_visible, face_label, target_label, status_label, result_label
 
     window = tk.Tk()
-    window.geometry("600x700")
+    window.geometry("700x700")
     window.title("roop")
     window.configure(bg="#2d3436")
     window.resizable(width=False, height=False)
@@ -268,9 +309,15 @@ def init(
     face_label.pack(fill='both', side='top', expand=True)
 
     right_frame = tk.Frame(window)
-    right_frame.place(x=360, y=100, width=180, height=180)
+    right_frame.place(x=256, y=100, width=180, height=180)
     target_label = tk.Label(right_frame)
     target_label.pack(fill='both', side='top', expand=True)
+
+    result_frame = tk.Frame(window)
+    result_frame.place(x=468, y=100, width=180, height=180)
+    result_label = tk.Label(result_frame)
+    result_label.pack(fill='both', side='top', expand=True)
+
 
     # Select a face button
     face_button = create_background_button(window, "Select a face", lambda: [
@@ -283,7 +330,15 @@ def init(
         select_target(select_target_handler, target_path, frames_amount),
         update_slider(get_video_frame, create_test_preview, target_path.get(), frames_amount.get())
     ])
-    target_button.place(x=360,y=320,width=180,height=80)
+    target_button.place(x=256,y=320,width=180,height=80)
+
+
+    # Show result
+    show_result__button = create_background_button(window, "Open result", lambda: [
+        os.startfile(output_file_path, "open")
+    ])
+    show_result__button.place(x=468,y=320,width=180,height=80)
+
 
     # All faces checkbox
     all_faces = tk.IntVar(None, initial_values['all_faces'])
@@ -301,7 +356,8 @@ def init(
     frames_checkbox.place(x=60,y=450,width=240,height=31)
 
     # Start button
-    start_button = create_button(window, "Start", lambda: [save_file(save_file_handler, target_path.get()), preview_thread(lambda: start(update_preview))])
+    start_button = create_button(window, "Start", lambda: [save_file(save_file_handler, target_path.get()), preview_thread(lambda: start(update_preview, preview_result))])
+    #start_button = create_button(window, "Start", lambda: [save_file(save_file_handler, target_path.get()), preview_thread(start_swap(update_preview))])
     start_button.place(x=170,y=560,width=120,height=49)
 
     # Preview button

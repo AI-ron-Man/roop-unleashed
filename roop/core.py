@@ -160,7 +160,7 @@ def process_video_multi_cores(source_img, frame_paths):
         POOL.join()
 
 
-def start(preview_callback = None):
+def start(preview_callback = None, result_callback=None):
     if not args.source_img or not os.path.isfile(args.source_img):
         print("\n[WARNING] Please select an image containing a face.")
         return
@@ -180,6 +180,8 @@ def start(preview_callback = None):
 #            quit()
         process_img(args.source_img, target_path, args.output_file)
         status("swap successful!")
+        if result_callback:
+            result_callback()
         return
     #seconds, probabilities = predict_video_frames(video_path=args.target_path, frame_interval=100)
     #if any(probability > 0.85 for probability in probabilities):
