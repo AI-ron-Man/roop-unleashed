@@ -1,12 +1,11 @@
 import glob
+import mimetypes
 import os
 import shutil
 import subprocess
 import urllib
 from pathlib import Path
 from typing import List
-import cv2
-from PIL import Image
 from tqdm import tqdm
 
 import roop.globals
@@ -24,14 +23,15 @@ def run_ffmpeg(args: List[str]) -> None:
         pass
 
 
-def detect_fps(target_path: str) -> int:
+def detect_fps(target_path: str) -> float:
     command = ['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=r_frame_rate', '-of', 'default=noprint_wrappers=1:nokey=1', target_path]
-    output = subprocess.check_output(command).decode().strip()
+    output = subprocess.check_output(command).decode().strip().split('/')
     try:
-        return int(eval(output))
+        numerator, denominator = map(int, output)
+        return numerator / denominator
     except Exception:
         pass
-    return 30
+    return 30.0
 
 
 def extract_frames(target_path: str) -> None:
@@ -39,7 +39,7 @@ def extract_frames(target_path: str) -> None:
     run_ffmpeg(['-i', target_path, os.path.join(temp_directory_path, '%04d.png')])
 
 
-def create_video(target_path: str, fps: int) -> None:
+def create_video(target_path: str, fps: float = 30.0) -> None:
     temp_output_path = get_temp_output_path(target_path)
     temp_directory_path = get_temp_directory_path(target_path)
     run_ffmpeg(['-r', str(fps), '-i', os.path.join(temp_directory_path, '%04d.png'), '-c:v', roop.globals.video_encoder, '-crf', str(roop.globals.video_quality), '-pix_fmt', 'yuv420p', '-y', temp_output_path])
@@ -76,7 +76,9 @@ def create_temp(target_path: str) -> None:
 def move_temp(target_path: str, output_path: str) -> None:
     temp_output_path = get_temp_output_path(target_path)
     if os.path.isfile(temp_output_path):
-        shutil.move(temp_output_path, output_path, copy_function=shutil.copy2)
+        if os.path.isfile(output_path):
+            os.remove(output_path)
+        shutil.move(temp_output_path, output_path)
 
 
 def clean_temp(target_path: str) -> None:
@@ -94,25 +96,15 @@ def has_image_extension(image_path: str) -> bool:
 
 def is_image(image_path: str) -> bool:
     if image_path and os.path.isfile(image_path):
-        try:
-            image = Image.open(image_path)
-            image.verify()
-            return True
-        except Exception:
-            pass
+        mimetype, _ = mimetypes.guess_type(image_path)
+        return mimetype and mimetype.startswith('image/')
     return False
 
 
 def is_video(video_path: str) -> bool:
     if video_path and os.path.isfile(video_path):
-        try:
-            capture = cv2.VideoCapture(video_path)
-            if capture.isOpened():
-                is_video, _ = capture.read()
-                capture.release()
-                return is_video
-        except Exception:
-            pass
+        mimetype, _ = mimetypes.guess_type(video_path)
+        return mimetype and mimetype.startswith('video/')
     return False
 
 

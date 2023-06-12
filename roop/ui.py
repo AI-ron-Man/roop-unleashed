@@ -7,7 +7,7 @@ from PIL import Image, ImageTk, ImageOps
 
 import roop.globals
 from roop.analyser import get_one_face
-from roop.capturer import get_video_frame
+from roop.capturer import get_video_frame, get_video_frame_total
 from roop.swapper import process_faces
 from roop.utilities import is_image, is_video, resolve_relative_path
 
@@ -32,6 +32,7 @@ def init(start: Callable, destroy: Callable) -> ctk.CTk:
 def create_root(start: Callable, destroy: Callable) -> ctk.CTk:
     global source_label, target_label, status_label
 
+    ctk.deactivate_automatic_dpi_awareness()
     ctk.set_appearance_mode('system')
     ctk.set_default_color_theme(resolve_relative_path('ui.json'))
     root = ctk.CTk()
@@ -60,13 +61,12 @@ def create_root(start: Callable, destroy: Callable) -> ctk.CTk:
     keep_frames_switch = ctk.CTkSwitch(root, text='Keep frames', variable=keep_frames_value, command=lambda: setattr(roop.globals, 'keep_frames', keep_frames_value.get()))
     keep_frames_switch.place(relx=0.1, rely=0.65)
 
-    enhance_value = ctk.BooleanVar(value=roop.globals.post_enhance)
-    enhance_switch = ctk.CTkSwitch(root, text='Post enhance images', variable=enhance_value, command=lambda: setattr(roop.globals, 'post_enhance', enhance_value.get()))
-    enhance_switch.place(relx=0.1, rely=0.7)
-
     keep_audio_value = ctk.BooleanVar(value=roop.globals.keep_audio)
     keep_audio_switch = ctk.CTkSwitch(root, text='Keep audio', variable=keep_audio_value, command=lambda: setattr(roop.globals, 'keep_audio', keep_audio_value.get()))
     keep_audio_switch.place(relx=0.6, rely=0.6)
+    enhance_value = ctk.BooleanVar(value=roop.globals.post_enhance)
+    enhance_switch = ctk.CTkSwitch(root, text='Post enhance images', variable=enhance_value, command=lambda: setattr(roop.globals, 'post_enhance', enhance_value.get()))
+    enhance_switch.place(relx=0.1, rely=0.7)
 
     many_faces_value = ctk.BooleanVar(value=roop.globals.many_faces)
     many_faces_switch = ctk.CTkSwitch(root, text='Many faces', variable=many_faces_value, command=lambda: setattr(roop.globals, 'many_faces', many_faces_value.get()))
@@ -100,8 +100,7 @@ def create_preview(parent) -> ctk.CTkToplevel:
     preview_label = ctk.CTkLabel(preview, text=None)
     preview_label.pack(fill='both', expand=True)
 
-    preview_slider = ctk.CTkSlider(preview, from_=0, to=100, border_width=10, command=lambda frame_value: update_preview(frame_value))
-    preview_slider.pack(fill='x')
+    preview_slider = ctk.CTkSlider(preview, from_=0, to=0, command=lambda frame_value: update_preview(frame_value))
 
     return preview
 
@@ -114,6 +113,7 @@ def update_status(text: str) -> None:
 def select_source_path() -> None:
     global RECENT_DIRECTORY_SOURCE
 
+    PREVIEW.withdraw()
     source_path = ctk.filedialog.askopenfilename(title='Select an face image', initialdir=RECENT_DIRECTORY_SOURCE)
     if is_image(source_path):
         roop.globals.source_path = source_path
@@ -130,6 +130,7 @@ def select_source_path() -> None:
 def select_target_path() -> None:
     global RECENT_DIRECTORY_TARGET
 
+    PREVIEW.withdraw()
     target_path = ctk.filedialog.askopenfilename(title='Select an image or video target', initialdir=RECENT_DIRECTORY_TARGET)
     if is_image(target_path):
         roop.globals.target_path = target_path
@@ -156,6 +157,8 @@ def select_output_path(start):
         output_path = ctk.filedialog.asksaveasfilename(title='Save image output', initialfile='output.png', initialdir=RECENT_DIRECTORY_OUTPUT)
     elif is_video(roop.globals.target_path):
         output_path = ctk.filedialog.asksaveasfilename(title='Save video output', initialfile='output.mp4', initialdir=RECENT_DIRECTORY_OUTPUT)
+    else:
+        output_path = None
     if output_path:
         roop.globals.output_path = output_path
         RECENT_DIRECTORY_OUTPUT = os.path.dirname(roop.globals.output_path)
@@ -169,7 +172,7 @@ def render_image_preview(image_path: str, dimensions: Tuple[int, int] = None) ->
     return ImageTk.PhotoImage(image)
 
 
-def render_video_preview(video_path: str, dimensions: Tuple[int, int] = None, frame_number: int = 1) -> ImageTk.PhotoImage:
+def render_video_preview(video_path: str, dimensions: Tuple[int, int] = None, frame_number: int = 0) -> ImageTk.PhotoImage:
     capture = cv2.VideoCapture(video_path)
     if frame_number:
         capture.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
@@ -186,13 +189,24 @@ def render_video_preview(video_path: str, dimensions: Tuple[int, int] = None, fr
 def toggle_preview() -> None:
     if PREVIEW.state() == 'normal':
         PREVIEW.withdraw()
-    else:
-        update_preview(1)
+    elif roop.globals.source_path and roop.globals.target_path:
+        init_preview()
+        update_preview()
         PREVIEW.deiconify()
 
 
-def update_preview(frame_number: int) -> None:
-    if roop.globals.source_path and roop.globals.target_path and frame_number:
+def init_preview() -> None:
+    if is_image(roop.globals.target_path):
+        preview_slider.pack_forget()
+    if is_video(roop.globals.target_path):
+        video_frame_total = get_video_frame_total(roop.globals.target_path)
+        preview_slider.configure(to=video_frame_total)
+        preview_slider.pack(fill='x')
+        preview_slider.set(0)
+
+
+def update_preview(frame_number: int = 0) -> None:
+    if roop.globals.source_path and roop.globals.target_path:
         video_frame = process_faces(
             get_one_face(cv2.imread(roop.globals.source_path)),
             get_video_frame(roop.globals.target_path, frame_number)

@@ -1,64 +1,41 @@
-import os
 import cv2
 import torch
 import threading
 from tqdm import tqdm
-import roop.globals
-
 from torchvision.transforms.functional import normalize
-
 from codeformer.facelib.utils.face_restoration_helper import FaceRestoreHelper
-from codeformer.basicsr.utils.download_util import load_file_from_url
 from codeformer.basicsr.utils.registry import ARCH_REGISTRY
 from codeformer.basicsr.utils import img2tensor, tensor2img
 
+import roop.globals
+from roop.utilities import conditional_download, resolve_relative_path
+
 if 'ROCMExecutionProvider' in roop.globals.providers:
     del torch
-else:
-    pretrain_model_url = {
-        "codeformer": "https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/codeformer.pth",
-        "detection": "https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/detection_Resnet50_Final.pth",
-        "parsing": "https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/parsing_parsenet.pth",
-        "realesrgan": "https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/RealESRGAN_x2plus.pth",
-    }
-    # download weights
-    if not os.path.exists("CodeFormer/weights/CodeFormer/codeformer.pth"):
-        load_file_from_url(
-            url=pretrain_model_url["codeformer"], model_dir="CodeFormer/weights/CodeFormer", progress=True, file_name=None
-        )
-    if not os.path.exists("CodeFormer/weights/facelib/detection_Resnet50_Final.pth"):
-        load_file_from_url(
-            url=pretrain_model_url["detection"], model_dir="CodeFormer/weights/facelib", progress=True, file_name=None
-        )
-    if not os.path.exists("CodeFormer/weights/facelib/parsing_parsenet.pth"):
-        load_file_from_url(
-            url=pretrain_model_url["parsing"], model_dir="CodeFormer/weights/facelib", progress=True, file_name=None
-        )
-    if not os.path.exists("CodeFormer/weights/realesrgan/RealESRGAN_x2plus.pth"):
-        load_file_from_url(
-            url=pretrain_model_url["realesrgan"], model_dir="CodeFormer/weights/realesrgan", progress=True, file_name=None
-        )
-    #FACE_HELPER = None
-    CODE_FORMER = None
-    THREAD_LOCK = threading.Lock()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ckpt_path = "CodeFormer/weights/CodeFormer/codeformer.pth"
-    checkpoint = torch.load(ckpt_path)["params_ema"]
+
+CODE_FORMER = None
+THREAD_LOCK = threading.Lock()
+
+
+def pre_check() -> None:
+    download_directory_path = resolve_relative_path('../models')
+    conditional_download(download_directory_path, ['https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/codeformer.pth'])
 
 
 def get_code_former():
     global CODE_FORMER
-
     with THREAD_LOCK:
+        model_path = resolve_relative_path('../models/codeformer.pth')
         if CODE_FORMER is None:
-            CODE_FORMER = ARCH_REGISTRY.get("CodeFormer")(
+            model = torch.load(model_path)['params_ema']
+            CODE_FORMER = ARCH_REGISTRY.get('CodeFormer')(
                 dim_embd=512,
                 codebook_size=1024,
                 n_head=8,
                 n_layers=9,
-                connect_list=["32", "64", "128", "256"],
-            ).to(device)
-            CODE_FORMER.load_state_dict(checkpoint)
+                connect_list=['32', '64', '128', '256'],
+            ).to('cuda')
+            CODE_FORMER.load_state_dict(model)
             CODE_FORMER.eval()
         return CODE_FORMER
     
@@ -69,10 +46,10 @@ def get_face_enhancer(FACE_ENHANCER):
         upscale_factor = int(2),
         face_size=512,
         crop_ratio=(1, 1),
-        det_model="retinaface_resnet50",
-        save_ext="png",
+        det_model='retinaface_resnet50',
+        save_ext='png',
         use_parse=True,
-        device=device,
+        device='cuda',
     )
     return FACE_ENHANCER
 
@@ -84,7 +61,7 @@ def enhance_face_in_frame(cropped_faces):
             faces_enhanced = restore_face(face_in_tensor)
             return faces_enhanced
     except RuntimeError as error:
-        print(f"Failed inference for CodeFormer-code: {error}")
+        print(f'Failed inference for CodeFormer-code: {error}')
 
 
 def process_faces(source_face: any, frame: any) -> any:
@@ -105,13 +82,13 @@ def process_faces(source_face: any, frame: any) -> any:
         face_helper.clean_all()
         return result
     except RuntimeError as error:
-        print(f"Failed inference for CodeFormer-code-paste: {error}")
+        print(f'Failed inference for CodeFormer-code-paste: {error}')
 
 
 def normalize_face(face):
     face_in_tensor = img2tensor(face / 255.0, bgr2rgb=True, float32=True)
     normalize(face_in_tensor, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True)
-    return face_in_tensor.unsqueeze(0).to(device)
+    return face_in_tensor.unsqueeze(0).to('cuda')
 
 
 def enhance_face_in_tensor(face_in_tensor, codeformer_fidelity = 0.6):
@@ -122,7 +99,7 @@ def enhance_face_in_tensor(face_in_tensor, codeformer_fidelity = 0.6):
 
 def convert_tensor_to_image(enhanced_face_in_tensor):
     restored_face = tensor2img(enhanced_face_in_tensor, rgb2bgr=True, min_max=(-1, 1))
-    return restored_face.astype("uint8")
+    return restored_face.astype('uint8')
 
 
 def restore_face(face_in_tensor):
@@ -131,7 +108,7 @@ def restore_face(face_in_tensor):
         restored_face = convert_tensor_to_image(enhanced_face_in_tensor)
         del enhanced_face_in_tensor
     except RuntimeError as error:
-        print(f"Failed inference for CodeFormer-tensor: {error}")
+        print(f'Failed inference for CodeFormer-tensor: {error}')
         restored_face = convert_tensor_to_image(face_in_tensor)
         return restored_face
     return restored_face
@@ -189,7 +166,3 @@ def process_video(source_path: str, frame_paths: list[str], mode: str) -> None:
         elif mode == 'gpu':
             progress.set_postfix({'mode': mode, 'threads': roop.globals.gpu_threads, 'memory': roop.globals.max_memory})
             multi_process_frame(source_path, frame_paths, progress)
-
-
-
-
