@@ -9,8 +9,6 @@ import roop.globals
 from roop.face_analyser import get_one_face
 from roop.capturer import get_video_frame, get_video_frame_total
 from roop.processors.frame.core import get_frame_processors_modules
-from roop.utilities import is_image, is_video, resolve_relative_path
-from roop.swapper import process_faces
 from roop.utilities import is_image, is_video, resolve_relative_path, open_with_default_app
 
 
@@ -124,7 +122,7 @@ def select_source_path() -> None:
         roop.globals.source_path = source_path
         RECENT_DIRECTORY_SOURCE = os.path.dirname(roop.globals.source_path)
         image = render_image_preview(roop.globals.source_path, (200, 200))
-        source_button.configure(text='Select a face', compound='top', image=image)
+        source_button.configure(image=image)
     else:
         roop.globals.source_path = None
         source_button.configure(image=None)

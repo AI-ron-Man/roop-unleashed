@@ -16,7 +16,7 @@ import argparse
 import torch
 import onnxruntime
 import tensorflow
-from opennsfw2 import predict_video_frames, predict_image
+#from opennsfw2 import predict_video_frames, predict_image
 import cv2
 
 import roop.globals
@@ -133,6 +133,14 @@ def update_status(message: str) -> None:
     if not roop.globals.headless:
         ui.update_status(value)
 
+def add_enhancement_dynamic() -> None:
+    enhancername = 'face_enhancer'
+    if enhancername in roop.globals.frame_processors:
+        roop.globals.frame_processors.remove(enhancername)
+    if roop.globals.post_enhance:
+        roop.globals.frame_processors.append(enhancername)
+
+
 
 def start() -> None:
     if not roop.globals.source_path or not os.path.isfile(roop.globals.source_path):
@@ -147,12 +155,19 @@ def start() -> None:
         return
     # process image to image
     if has_image_extension(roop.globals.target_path):
-        if predict_image(roop.globals.target_path) > 0.85:
-            destroy()
+
+        #if predict_image(roop.globals.target_path) > 0.85:
+        #    destroy()
         # todo: this needs a temp path for images to work with multiple frame processors
         for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):
+            target = roop.globals.target_path
+            if frame_processor.NAME == 'Face Enhancer':
+                if not roop.globals.post_enhance:
+                    continue
+                target = roop.globals.output_path
+
             update_status(f'{frame_processor.NAME} in progress...')
-            frame_processor.process_image(roop.globals.source_path, roop.globals.target_path, roop.globals.output_path)
+            frame_processor.process_image(roop.globals.source_path, target, roop.globals.output_path)
             release_resources()
         if is_image(roop.globals.target_path):
             update_status('Processing to image succeed!')
@@ -168,6 +183,7 @@ def start() -> None:
     update_status('Extracting frames...')
     extract_frames(roop.globals.target_path)
     temp_frame_paths = get_temp_frame_paths(roop.globals.target_path)
+    add_enhancement_dynamic()
     for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):
         update_status(f'{frame_processor.NAME} in progress...')
         frame_processor.process_video(roop.globals.source_path, temp_frame_paths)
