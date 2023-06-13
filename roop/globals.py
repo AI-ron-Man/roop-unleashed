@@ -10,7 +10,6 @@ post_enhance = None
 video_encoder = None
 video_quality = None
 max_memory = None
-cpu_cores = None
 execution_providers = []
 execution_threads = None
 headless = None

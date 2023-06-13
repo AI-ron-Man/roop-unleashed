@@ -6,8 +6,10 @@ import cv2
 from PIL import Image, ImageTk, ImageOps
 
 import roop.globals
-from roop.analyser import get_one_face
+from roop.face_analyser import get_one_face
 from roop.capturer import get_video_frame, get_video_frame_total
+from roop.processors.frame.core import get_frame_processors_modules
+from roop.utilities import is_image, is_video, resolve_relative_path
 from roop.swapper import process_faces
 from roop.utilities import is_image, is_video, resolve_relative_path, open_with_default_app
 
@@ -211,11 +213,13 @@ def init_preview() -> None:
 
 def update_preview(frame_number: int = 0) -> None:
     if roop.globals.source_path and roop.globals.target_path:
-        video_frame = process_faces(
-            get_one_face(cv2.imread(roop.globals.source_path)),
-            get_video_frame(roop.globals.target_path, frame_number)
-        )
-        image = Image.fromarray(video_frame)
+        video_frame = None
+        for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):
+            video_frame = frame_processor.process_faces(
+                get_one_face(cv2.imread(roop.globals.source_path)),
+                get_video_frame(roop.globals.target_path, frame_number)
+            )
+        image = Image.fromarray(cv2.cvtColor(video_frame, cv2.COLOR_BGR2RGB))
         image = ImageOps.contain(image, (PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT), Image.LANCZOS)
         image = ImageTk.PhotoImage(image)
         preview_label.configure(image=image)
