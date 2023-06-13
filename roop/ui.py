@@ -9,9 +9,10 @@ import roop.globals
 from roop.analyser import get_one_face
 from roop.capturer import get_video_frame, get_video_frame_total
 from roop.swapper import process_faces
-from roop.utilities import is_image, is_video, resolve_relative_path
+from roop.utilities import is_image, is_video, resolve_relative_path, open_with_default_app
 
-WINDOW_HEIGHT = 700
+
+WINDOW_HEIGHT = 800
 WINDOW_WIDTH = 600
 PREVIEW_MAX_HEIGHT = 700
 PREVIEW_MAX_WIDTH = 1200
@@ -30,7 +31,7 @@ def init(start: Callable, destroy: Callable) -> ctk.CTk:
 
 
 def create_root(start: Callable, destroy: Callable) -> ctk.CTk:
-    global source_label, target_label, status_label
+    global source_button, target_button, status_label
 
     ctk.deactivate_automatic_dpi_awareness()
     ctk.set_appearance_mode('system')
@@ -41,17 +42,14 @@ def create_root(start: Callable, destroy: Callable) -> ctk.CTk:
     root.configure()
     root.protocol('WM_DELETE_WINDOW', lambda: destroy())
 
-    source_label = ctk.CTkLabel(root, text=None)
-    source_label.place(relx=0.1, rely=0.1, relwidth=0.3, relheight=0.25)
-
-    target_label = ctk.CTkLabel(root, text=None)
-    target_label.place(relx=0.6, rely=0.1, relwidth=0.3, relheight=0.25)
-
     source_button = ctk.CTkButton(root, text='Select a face', command=lambda: select_source_path())
-    source_button.place(relx=0.1, rely=0.4, relwidth=0.3, relheight=0.1)
+    source_button.place(relx=0.1, rely=0.1, relwidth=0.3, relheight=0.25)
+
+#    source_label = ctk.CTkLabel(root, text=None)
+#    source_label.place(relx=0.1, rely=0.1, relwidth=0.3, relheight=0.25)
 
     target_button = ctk.CTkButton(root, text='Select a target', command=lambda: select_target_path())
-    target_button.place(relx=0.6, rely=0.4, relwidth=0.3, relheight=0.1)
+    target_button.place(relx=0.6, rely=0.1, relwidth=0.3, relheight=0.25)
 
     keep_fps_value = ctk.BooleanVar(value=roop.globals.keep_fps)
     keep_fps_checkbox = ctk.CTkSwitch(root, text='Keep fps', variable=keep_fps_value, command=lambda: setattr(roop.globals, 'keep_fps', not roop.globals.keep_fps))
@@ -73,16 +71,21 @@ def create_root(start: Callable, destroy: Callable) -> ctk.CTk:
     many_faces_switch.place(relx=0.6, rely=0.65)
 
     start_button = ctk.CTkButton(root, text='Start', command=lambda: select_output_path(start))
-    start_button.place(relx=0.15, rely=0.75, relwidth=0.2, relheight=0.05)
+    start_button.place(relx=0.15, rely=0.75, relwidth=0.15, relheight=0.05)
 
     stop_button = ctk.CTkButton(root, text='Destroy', command=lambda: destroy())
-    stop_button.place(relx=0.4, rely=0.75, relwidth=0.2, relheight=0.05)
+    stop_button.place(relx=0.35, rely=0.75, relwidth=0.15, relheight=0.05)
 
     preview_button = ctk.CTkButton(root, text='Preview', command=lambda: toggle_preview())
-    preview_button.place(relx=0.65, rely=0.75, relwidth=0.2, relheight=0.05)
+    preview_button.place(relx=0.55, rely=0.75, relwidth=0.15, relheight=0.05)
+
+    result_button = ctk.CTkButton(root, text='Show Result', command=lambda: show_result())
+    result_button.place(relx=0.75, rely=0.75, relwidth=0.15, relheight=0.05)
 
     status_label = ctk.CTkLabel(root, text='Status: None', justify='center')
-    status_label.place(relx=0.1, rely=0.9)
+    status_label.place(relx=0.1, rely=0.8)
+
+
 
     return root
 
@@ -114,17 +117,16 @@ def select_source_path() -> None:
     global RECENT_DIRECTORY_SOURCE
 
     PREVIEW.withdraw()
-    source_path = ctk.filedialog.askopenfilename(title='Select an face image', initialdir=RECENT_DIRECTORY_SOURCE)
+    source_path = ctk.filedialog.askopenfilename(title='Select a face image', initialdir=RECENT_DIRECTORY_SOURCE)
     if is_image(source_path):
         roop.globals.source_path = source_path
         RECENT_DIRECTORY_SOURCE = os.path.dirname(roop.globals.source_path)
         image = render_image_preview(roop.globals.source_path, (200, 200))
-        source_label.configure(image=image)
-        source_label.image = image
+        source_button.configure(text='Select a face', compound='top', image=image)
     else:
         roop.globals.source_path = None
-        source_label.configure(image=None)
-        source_label.image = None
+        source_button.configure(image=None)
+    source_button._draw()
 
 
 def select_target_path() -> None:
@@ -136,18 +138,17 @@ def select_target_path() -> None:
         roop.globals.target_path = target_path
         RECENT_DIRECTORY_TARGET = os.path.dirname(roop.globals.target_path)
         image = render_image_preview(roop.globals.target_path)
-        target_label.configure(image=image)
-        target_label.image = image
+        target_button.configure(image=image)
     elif is_video(target_path):
         roop.globals.target_path = target_path
         RECENT_DIRECTORY_TARGET = os.path.dirname(roop.globals.target_path)
         video_frame = render_video_preview(target_path, (200, 200))
-        target_label.configure(image=video_frame)
-        target_label.image = video_frame
+        target_button.configure(image=video_frame)
     else:
         roop.globals.target_path = None
-        target_label.configure(image=None)
-        target_label.image = None
+        target_button.configure(image=None)
+    target_button._draw()
+
 
 
 def select_output_path(start):
@@ -164,6 +165,9 @@ def select_output_path(start):
         RECENT_DIRECTORY_OUTPUT = os.path.dirname(roop.globals.output_path)
         start()
 
+def show_result():
+    open_with_default_app(roop.globals.output_path)
+    
 
 def render_image_preview(image_path: str, dimensions: Tuple[int, int] = None) -> ImageTk.PhotoImage:
     image = Image.open(image_path)

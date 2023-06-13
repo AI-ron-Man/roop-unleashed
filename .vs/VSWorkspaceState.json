@@ -1,7 +1,10 @@
 {
   "ExpandedNodes": [
     "",
+    "\\CodeFormer",
+    "\\CodeFormer\\weights",
     "\\roop"
   ],
+  "SelectedNode": "\\roop\\enhancer.py",
   "PreviewInSolutionExplorer": false
 }
