@@ -5,17 +5,32 @@ import threading
 
 import roop.globals
 import roop.processors.frame.core
+from roop.core import update_status
 from roop.face_analyser import get_one_face, get_many_faces
-from roop.utilities import conditional_download, resolve_relative_path
+from roop.utilities import conditional_download, resolve_relative_path, is_image, is_video
 
 FACE_SWAPPER = None
 THREAD_LOCK = threading.Lock()
-NAME = 'Face Swapper'
+NAME = 'ROOP.FACE-SWAPPER'
 
 
-def pre_check() -> None:
+def pre_check() -> bool:
     download_directory_path = resolve_relative_path('../models')
     conditional_download(download_directory_path, ['https://huggingface.co/deepinsight/inswapper/resolve/main/inswapper_128.onnx'])
+    return True
+
+
+def pre_start() -> bool:
+    if not is_image(roop.globals.source_path):
+        update_status('Select an image for source path.', NAME)
+        return False
+    elif not get_one_face(cv2.imread(roop.globals.source_path)):
+        update_status('No face in source path detected.', NAME)
+        return False
+    if not is_image(roop.globals.target_path) and not is_video(roop.globals.target_path):
+        update_status('Select an image or video for target path.', NAME)
+        return False
+    return True
 
 
 def get_face_swapper() -> None:
@@ -34,7 +49,7 @@ def swap_face(source_face: Any, target_face: Any, temp_frame: Any) -> Any:
     return temp_frame
 
 
-def process_faces(source_face: Any, temp_frame: Any) -> Any:
+def process_frame(source_face: Any, temp_frame: Any) -> Any:
     if roop.globals.many_faces:
         many_faces = get_many_faces(temp_frame)
         if many_faces:
@@ -52,7 +67,7 @@ def process_frames(source_path: str, temp_frame_paths: List[str], progress=None)
     for temp_frame_path in temp_frame_paths:
         temp_frame = cv2.imread(temp_frame_path)
         try:
-            result = process_faces(source_face, temp_frame)
+            result = process_frame(source_face, temp_frame)
             cv2.imwrite(temp_frame_path, result)
         except Exception as exception:
             print(exception)
@@ -64,7 +79,7 @@ def process_frames(source_path: str, temp_frame_paths: List[str], progress=None)
 def process_image(source_path: str, target_path: str, output_path: str) -> None:
     source_face = get_one_face(cv2.imread(source_path))
     target_frame = cv2.imread(target_path)
-    result = process_faces(source_face, target_frame)
+    result = process_frame(source_face, target_frame)
     cv2.imwrite(output_path, result)
 
 
