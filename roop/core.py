@@ -17,13 +17,11 @@ import torch
 import onnxruntime
 import tensorflow
 from opennsfw2 import predict_video_frames, predict_image
-import cv2
 
 import roop.globals
 import roop.ui as ui
 from roop.processors.frame.core import get_frame_processors_modules
 from roop.utilities import has_image_extension, is_image, is_video, detect_fps, create_video, extract_frames, get_temp_frame_paths, restore_audio, create_temp, move_temp, clean_temp, normalize_output_path
-from roop.face_analyser import get_one_face
 
 if 'ROCMExecutionProvider' in roop.globals.execution_providers:
     del torch
@@ -34,21 +32,27 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 def parse_args() -> None:
     signal.signal(signal.SIGINT, lambda signal_number, frame: destroy())
     parser = argparse.ArgumentParser()
-    parser.add_argument('-f', '--face', help='use a face image', dest='source_path')
-    parser.add_argument('-t', '--target', help='replace image or video with face', dest='target_path')
-    parser.add_argument('-o', '--output', help='save output to this file', dest='output_path')
-    parser.add_argument('--frame-processor', help='list of frame processors to run', dest='frame_processor', default=['face_swapper'], choices=['face_swapper', 'face_enhancer'], nargs='+')
-    parser.add_argument('--keep-fps', help='maintain original fps', dest='keep_fps', action='store_true', default=False)
-    parser.add_argument('--keep-audio', help='maintain original audio', dest='keep_audio', action='store_true', default=True)
-    parser.add_argument('--keep-frames', help='keep frames directory', dest='keep_frames', action='store_true', default=False)
-    parser.add_argument('--many-faces', help='swap every face in the frame', dest='many_faces', action='store_true', default=False)
+    parser.add_argument('-s', '--source', help='select an source image', dest='source_path')
+    parser.add_argument('-t', '--target', help='select an target image or video', dest='target_path')
+    parser.add_argument('-o', '--output', help='select output file or directory', dest='output_path')
+    parser.add_argument('--frame-processor', help='pipeline of frame processors', dest='frame_processor', default=['face_swapper'], choices=['face_swapper', 'face_enhancer'], nargs='+')
+    parser.add_argument('--keep-fps', help='keep original fps', dest='keep_fps', action='store_true', default=False)
+    parser.add_argument('--keep-audio', help='keep original audio', dest='keep_audio', action='store_true', default=True)
+    parser.add_argument('--keep-frames', help='keep temporary frames', dest='keep_frames', action='store_true', default=False)
+    parser.add_argument('--many-faces', help='process every face', dest='many_faces', action='store_true', default=False)
     parser.add_argument('--video-encoder', help='adjust output video encoder', dest='video_encoder', default='libx264', choices=['libx264', 'libx265', 'libvpx-vp9'])
     parser.add_argument('--video-quality', help='adjust output video quality', dest='video_quality', type=int, default=18)
-    parser.add_argument('--max-memory', help='maximum amount of RAM in GB to be used', dest='max_memory', type=int, default=suggest_max_memory())
+    parser.add_argument('--max-memory', help='maximum amount of RAM in GB', dest='max_memory', type=int, default=suggest_max_memory())
     parser.add_argument('--execution-provider', help='execution provider', dest='execution_provider', default=['cpu'], choices=suggest_execution_providers(), nargs='+')
-    parser.add_argument('--execution-threads', help='number of threads to be use for the GPU', dest='execution_threads', type=int, default=suggest_execution_threads())
+    parser.add_argument('--execution-threads', help='number of execution threads', dest='execution_threads', type=int, default=suggest_execution_threads())
 
-    args = parser.parse_known_args()[0]
+    # register deprecated args
+    parser.add_argument('-f', '--face', help=argparse.SUPPRESS, dest='source_path_deprecated')
+    parser.add_argument('--cpu-cores', help=argparse.SUPPRESS, dest='cpu_cores_deprecated', type=int)
+    parser.add_argument('--gpu-vendor', help=argparse.SUPPRESS, dest='gpu_vendor_deprecated')
+    parser.add_argument('--gpu-threads', help=argparse.SUPPRESS, dest='gpu_threads_deprecated', type=int)
+
+    args = parser.parse_args()
 
     roop.globals.source_path = args.source_path
     roop.globals.target_path = args.target_path
@@ -64,6 +68,26 @@ def parse_args() -> None:
     roop.globals.max_memory = args.max_memory
     roop.globals.execution_providers = decode_execution_providers(args.execution_provider)
     roop.globals.execution_threads = args.execution_threads
+
+    # warn and cast deprecated args
+    if args.source_path_deprecated:
+        print('\033[33mArgument -f and --face are deprecated. Use -s and --source instead.\033[0m')
+        roop.globals.source_path = args.source_path_deprecated
+    if args.cpu_cores_deprecated:
+        print('\033[33mArgument --cpu-cores is deprecated. Use --execution-threads instead.\033[0m')
+        roop.globals.execution_threads = args.cpu_cores_deprecated
+    if args.gpu_vendor_deprecated == 'apple':
+        print('\033[33mArgument --gpu-vendor apple is deprecated. Use --execution-provider coreml instead.\033[0m')
+        roop.globals.execution_providers = decode_execution_providers(['coreml'])
+    if args.gpu_vendor_deprecated == 'nvidia':
+        print('\033[33mArgument --gpu-vendor nvidia is deprecated. Use --execution-provider cuda instead.\033[0m')
+        roop.globals.execution_providers = decode_execution_providers(['cuda'])
+    if args.gpu_vendor_deprecated == 'amd':
+        print('\033[33mArgument --gpu-vendor amd is deprecated. Use --execution-provider cuda instead.\033[0m')
+        roop.globals.execution_threads = decode_execution_providers(['rocm'])
+    if args.gpu_threads_deprecated:
+        print('\033[33mArgument --gpu-threads is deprecated. Use --execution-threads instead.\033[0m')
+        roop.globals.execution_threads = args.gpu_threads_deprecated
 
     # limit face enhancer to cuda
     if 'CUDAExecutionProvider' not in roop.globals.execution_providers and 'face_enhancer' in roop.globals.frame_processors:
@@ -102,6 +126,7 @@ def limit_resources() -> None:
     gpus = tensorflow.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tensorflow.config.experimental.set_memory_growth(gpu, True)
+    # limit memory usage
     if roop.globals.max_memory:
         memory = roop.globals.max_memory * 1024 ** 3
         if platform.system().lower() == 'darwin':
@@ -120,39 +145,33 @@ def release_resources() -> None:
         torch.cuda.empty_cache()
 
 
-def pre_check() -> None:
+def pre_check() -> bool:
     if sys.version_info < (3, 9):
-        quit('Python version is not supported - please upgrade to 3.9 or higher.')
+        update_status('Python version is not supported - please upgrade to 3.9 or higher.')
+        return False
     if not shutil.which('ffmpeg'):
-        quit('ffmpeg is not installed.')
+        update_status('ffmpeg is not installed.')
+        return False
+    return True
 
 
-def update_status(message: str) -> None:
-    value = 'Status: ' + message
-    print(value)
+def update_status(message: str, scope: str = 'ROOP.CORE') -> None:
+    print(f'[{scope}] {message}')
     if not roop.globals.headless:
-        ui.update_status(value)
+        ui.update_status(message)
 
 
 def start() -> None:
-    # validate paths
-    if not is_image(roop.globals.source_path):
-        update_status('Select an image for source path.')
-        return
-    elif not is_image(roop.globals.target_path) and not is_video(roop.globals.target_path):
-        update_status('Select an image or video for target path.')
-        return
-    has_face = get_one_face(cv2.imread(roop.globals.source_path))
-    if not has_face:
-        update_status('No face detected in source path.')
-        return
+    for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):
+        if not frame_processor.pre_start():
+            return
     # process image to image
     if has_image_extension(roop.globals.target_path):
         if predict_image(roop.globals.target_path) > 0.85:
             destroy()
         # todo: this needs a temp path for images to work with multiple frame processors
         for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):
-            update_status(f'{frame_processor.NAME} in progress...')
+            update_status('Progressing...', frame_processor.NAME)
             frame_processor.process_image(roop.globals.source_path, roop.globals.target_path, roop.globals.output_path)
             release_resources()
         if is_image(roop.globals.target_path):
@@ -170,7 +189,7 @@ def start() -> None:
     extract_frames(roop.globals.target_path)
     temp_frame_paths = get_temp_frame_paths(roop.globals.target_path)
     for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):
-        update_status(f'{frame_processor.NAME} in progress...')
+        update_status('Progressing...', frame_processor.NAME)
         frame_processor.process_video(roop.globals.source_path, temp_frame_paths)
         release_resources()
     # handles fps
@@ -207,9 +226,11 @@ def destroy() -> None:
 
 def run() -> None:
     parse_args()
-    pre_check()
+    if not pre_check():
+        return
     for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):
-        frame_processor.pre_check()
+        if not frame_processor.pre_check():
+            return
     limit_resources()
     if roop.globals.headless:
         start()

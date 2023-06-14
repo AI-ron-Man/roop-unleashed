@@ -78,8 +78,8 @@ def create_root(start: Callable, destroy: Callable) -> ctk.CTk:
     preview_button = ctk.CTkButton(root, text='Preview', command=lambda: toggle_preview())
     preview_button.place(relx=0.65, rely=0.75, relwidth=0.2, relheight=0.05)
 
-    status_label = ctk.CTkLabel(root, text='Status: None', justify='center')
-    status_label.place(relx=0.1, rely=0.9)
+    status_label = ctk.CTkLabel(root, text=None, justify='center')
+    status_label.place(relx=0.1, rely=0.9, relwidth=0.8)
 
     return root
 
@@ -111,7 +111,7 @@ def select_source_path() -> None:
     global RECENT_DIRECTORY_SOURCE
 
     PREVIEW.withdraw()
-    source_path = ctk.filedialog.askopenfilename(title='Select an face image', initialdir=RECENT_DIRECTORY_SOURCE)
+    source_path = ctk.filedialog.askopenfilename(title='select an source image', initialdir=RECENT_DIRECTORY_SOURCE)
     if is_image(source_path):
         roop.globals.source_path = source_path
         RECENT_DIRECTORY_SOURCE = os.path.dirname(roop.globals.source_path)
@@ -128,7 +128,7 @@ def select_target_path() -> None:
     global RECENT_DIRECTORY_TARGET
 
     PREVIEW.withdraw()
-    target_path = ctk.filedialog.askopenfilename(title='Select an image or video target', initialdir=RECENT_DIRECTORY_TARGET)
+    target_path = ctk.filedialog.askopenfilename(title='select an target image or video', initialdir=RECENT_DIRECTORY_TARGET)
     if is_image(target_path):
         roop.globals.target_path = target_path
         RECENT_DIRECTORY_TARGET = os.path.dirname(roop.globals.target_path)
@@ -151,9 +151,9 @@ def select_output_path(start):
     global RECENT_DIRECTORY_OUTPUT
 
     if is_image(roop.globals.target_path):
-        output_path = ctk.filedialog.asksaveasfilename(title='Save image output', initialfile='output.png', initialdir=RECENT_DIRECTORY_OUTPUT)
+        output_path = ctk.filedialog.asksaveasfilename(title='save image output file', initialfile='output.png', initialdir=RECENT_DIRECTORY_OUTPUT)
     elif is_video(roop.globals.target_path):
-        output_path = ctk.filedialog.asksaveasfilename(title='Save video output', initialfile='output.mp4', initialdir=RECENT_DIRECTORY_OUTPUT)
+        output_path = ctk.filedialog.asksaveasfilename(title='save video output file', initialfile='output.mp4', initialdir=RECENT_DIRECTORY_OUTPUT)
     else:
         output_path = None
     if output_path:
