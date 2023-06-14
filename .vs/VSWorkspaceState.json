@@ -3,8 +3,11 @@
     "",
     "\\CodeFormer",
     "\\CodeFormer\\weights",
-    "\\roop"
+    "\\CodeFormer\\weights\\CodeFormer",
+    "\\roop",
+    "\\roop\\processors",
+    "\\roop\\processors\\frame"
   ],
-  "SelectedNode": "\\roop\\enhancer.py",
+  "SelectedNode": "\\start.bat",
   "PreviewInSolutionExplorer": false
 }

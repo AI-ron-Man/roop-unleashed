@@ -133,13 +133,6 @@ def update_status(message: str) -> None:
     if not roop.globals.headless:
         ui.update_status(value)
 
-def add_enhancement_dynamic() -> None:
-    enhancername = 'face_enhancer'
-    if enhancername in roop.globals.frame_processors:
-        roop.globals.frame_processors.remove(enhancername)
-    if roop.globals.post_enhance:
-        roop.globals.frame_processors.append(enhancername)
-
 
 
 def start() -> None:
@@ -183,8 +176,10 @@ def start() -> None:
     update_status('Extracting frames...')
     extract_frames(roop.globals.target_path)
     temp_frame_paths = get_temp_frame_paths(roop.globals.target_path)
-    add_enhancement_dynamic()
     for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):
+        if frame_processor.NAME == 'Face Enhancer' and not roop.globals.post_enhance:
+            continue
+
         update_status(f'{frame_processor.NAME} in progress...')
         frame_processor.process_video(roop.globals.source_path, temp_frame_paths)
         release_resources()
