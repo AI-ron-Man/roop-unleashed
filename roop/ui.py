@@ -20,7 +20,6 @@ RECENT_DIRECTORY_SOURCE = None
 RECENT_DIRECTORY_TARGET = None
 RECENT_DIRECTORY_OUTPUT = None
 
-
 def init(start: Callable, destroy: Callable) -> ctk.CTk:
     global ROOT, PREVIEW
 
@@ -28,6 +27,7 @@ def init(start: Callable, destroy: Callable) -> ctk.CTk:
     PREVIEW = create_preview(ROOT)
 
     return ROOT
+
 
 
 def create_root(start: Callable, destroy: Callable) -> ctk.CTk:
@@ -87,6 +87,8 @@ def create_root(start: Callable, destroy: Callable) -> ctk.CTk:
 
     return root
 
+def create_preview(parent) -> ctk.CTkToplevel:
+    global preview_label, preview_slider
 
 def create_preview(parent) -> ctk.CTkToplevel:
     global preview_label, preview_slider
@@ -105,11 +107,16 @@ def create_preview(parent) -> ctk.CTkToplevel:
 
     return preview
 
+def update_status(text: str) -> None:
+    status_label.configure(text=text)
+    ROOT.update()
 
 def update_status(text: str) -> None:
     status_label.configure(text=text)
     ROOT.update()
 
+def select_source_path() -> None:
+    global RECENT_DIRECTORY_SOURCE
 
 def select_source_path() -> None:
     global RECENT_DIRECTORY_SOURCE
@@ -147,6 +154,8 @@ def select_target_path() -> None:
         target_button.configure(image=None)
     target_button._draw()
 
+def select_output_path(start):
+    global RECENT_DIRECTORY_OUTPUT
 
 
 def select_output_path(start):

@@ -17,7 +17,6 @@ import torch
 import onnxruntime
 import tensorflow
 #from opennsfw2 import predict_video_frames, predict_image
-import cv2
 
 import roop.globals
 import roop.ui as ui
