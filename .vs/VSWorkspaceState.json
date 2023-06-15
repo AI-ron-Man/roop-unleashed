@@ -4,10 +4,8 @@
     "\\CodeFormer",
     "\\CodeFormer\\weights",
     "\\CodeFormer\\weights\\CodeFormer",
-    "\\roop",
-    "\\roop\\processors",
-    "\\roop\\processors\\frame"
+    "\\roop"
   ],
-  "SelectedNode": "\\start.bat",
+  "SelectedNode": "\\roop\\core.py",
   "PreviewInSolutionExplorer": false
 }

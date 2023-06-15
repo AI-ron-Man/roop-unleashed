@@ -174,7 +174,7 @@ def start() -> None:
         # todo: this needs a temp path for images to work with multiple frame processors
         for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):
             target = roop.globals.target_path
-            if frame_processor.NAME == 'Face Enhancer':
+            if frame_processor.NAME == 'ROOP.FACE-ENHANCER':
                 if not roop.globals.post_enhance:
                     continue
                 target = roop.globals.output_path
@@ -197,7 +197,7 @@ def start() -> None:
     extract_frames(roop.globals.target_path)
     temp_frame_paths = get_temp_frame_paths(roop.globals.target_path)
     for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):
-        if frame_processor.NAME == 'Face Enhancer' and not roop.globals.post_enhance:
+        if frame_processor.NAME == 'ROOP.FACE-ENHANCER' and not roop.globals.post_enhance:
             continue
 
         update_status(f'{frame_processor.NAME} in progress...')

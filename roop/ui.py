@@ -12,8 +12,8 @@ from roop.processors.frame.core import get_frame_processors_modules
 from roop.utilities import is_image, is_video, resolve_relative_path, open_with_default_app
 
 
-WINDOW_HEIGHT = 800
-WINDOW_WIDTH = 600
+WINDOW_HEIGHT = 480
+WINDOW_WIDTH = 640
 PREVIEW_MAX_HEIGHT = 700
 PREVIEW_MAX_WIDTH = 1200
 RECENT_DIRECTORY_SOURCE = None
@@ -42,48 +42,53 @@ def create_root(start: Callable, destroy: Callable) -> ctk.CTk:
     root.configure()
     root.protocol('WM_DELETE_WINDOW', lambda: destroy())
 
-    source_button = ctk.CTkButton(root, text='Select a face', command=lambda: select_source_path())
-    source_button.place(relx=0.1, rely=0.1, relwidth=0.3, relheight=0.25)
+    base_x1 = 0.075
+    base_x2 = 0.575
+    base_y = 0.6
 
-#    source_label = ctk.CTkLabel(root, text=None)
-#    source_label.place(relx=0.1, rely=0.1, relwidth=0.3, relheight=0.25)
+    source_button = ctk.CTkButton(root, text='Select a face', width=200, height=200, compound='top', anchor='center', command=lambda: select_source_path())
+    source_button.place(relx=base_x1, rely=0.05)
 
-    target_button = ctk.CTkButton(root, text='Select a target', command=lambda: select_target_path())
-    target_button.place(relx=0.6, rely=0.1, relwidth=0.3, relheight=0.25)
+    target_button = ctk.CTkButton(root, text='Select a target', width=200, height=200, compound='top', anchor='center', command=lambda: select_target_path())
+    target_button.place(relx=base_x2, rely=0.05)
 
+    
     keep_fps_value = ctk.BooleanVar(value=roop.globals.keep_fps)
     keep_fps_checkbox = ctk.CTkSwitch(root, text='Keep fps', variable=keep_fps_value, command=lambda: setattr(roop.globals, 'keep_fps', not roop.globals.keep_fps))
-    keep_fps_checkbox.place(relx=0.1, rely=0.6)
+    keep_fps_checkbox.place(relx=base_x1, rely=base_y)
 
     keep_frames_value = ctk.BooleanVar(value=roop.globals.keep_frames)
     keep_frames_switch = ctk.CTkSwitch(root, text='Keep frames', variable=keep_frames_value, command=lambda: setattr(roop.globals, 'keep_frames', keep_frames_value.get()))
-    keep_frames_switch.place(relx=0.1, rely=0.65)
+    keep_frames_switch.place(relx=base_x1, rely=0.65)
 
     keep_audio_value = ctk.BooleanVar(value=roop.globals.keep_audio)
     keep_audio_switch = ctk.CTkSwitch(root, text='Keep audio', variable=keep_audio_value, command=lambda: setattr(roop.globals, 'keep_audio', keep_audio_value.get()))
-    keep_audio_switch.place(relx=0.6, rely=0.6)
-    enhance_value = ctk.BooleanVar(value=roop.globals.post_enhance)
-    enhance_switch = ctk.CTkSwitch(root, text='Post enhance images', variable=enhance_value, command=lambda: setattr(roop.globals, 'post_enhance', enhance_value.get()))
-    enhance_switch.place(relx=0.1, rely=0.7)
+    keep_audio_switch.place(relx=base_x2, rely=base_y)
 
     many_faces_value = ctk.BooleanVar(value=roop.globals.many_faces)
     many_faces_switch = ctk.CTkSwitch(root, text='Many faces', variable=many_faces_value, command=lambda: setattr(roop.globals, 'many_faces', many_faces_value.get()))
-    many_faces_switch.place(relx=0.6, rely=0.65)
+    many_faces_switch.place(relx=base_x2, rely=0.65)
 
+    enhance_value = ctk.BooleanVar(value=roop.globals.post_enhance)
+    enhance_switch = ctk.CTkSwitch(root, text='Post enhance images', variable=enhance_value, command=lambda: setattr(roop.globals, 'post_enhance', enhance_value.get()))
+    enhance_switch.place(relx=base_x1, rely=0.7)
+
+    base_y = 0.8
+  
     start_button = ctk.CTkButton(root, text='Start', command=lambda: select_output_path(start))
-    start_button.place(relx=0.15, rely=0.75, relwidth=0.15, relheight=0.05)
+    start_button.place(relx=base_x1, rely=base_y, relwidth=0.15, relheight=0.05)
 
     stop_button = ctk.CTkButton(root, text='Destroy', command=lambda: destroy())
-    stop_button.place(relx=0.35, rely=0.75, relwidth=0.15, relheight=0.05)
+    stop_button.place(relx=0.35, rely=base_y, relwidth=0.15, relheight=0.05)
 
     preview_button = ctk.CTkButton(root, text='Preview', command=lambda: toggle_preview())
-    preview_button.place(relx=0.55, rely=0.75, relwidth=0.15, relheight=0.05)
+    preview_button.place(relx=0.55, rely=base_y, relwidth=0.15, relheight=0.05)
 
     result_button = ctk.CTkButton(root, text='Show Result', command=lambda: show_result())
-    result_button.place(relx=0.75, rely=0.75, relwidth=0.15, relheight=0.05)
+    result_button.place(relx=0.75, rely=base_y, relwidth=0.15, relheight=0.05)
 
     status_label = ctk.CTkLabel(root, text=None, justify='center')
-    status_label.place(relx=0.1, rely=0.9, relwidth=0.8)
+    status_label.place(relx=base_x1, rely=0.9, relwidth=0.8)
 
     return root
 
@@ -142,7 +147,7 @@ def select_target_path() -> None:
     if is_image(target_path):
         roop.globals.target_path = target_path
         RECENT_DIRECTORY_TARGET = os.path.dirname(roop.globals.target_path)
-        image = render_image_preview(roop.globals.target_path)
+        image = render_image_preview(roop.globals.target_path, (200, 200))
         target_button.configure(image=image)
     elif is_video(target_path):
         roop.globals.target_path = target_path
@@ -176,23 +181,24 @@ def show_result():
     open_with_default_app(roop.globals.output_path)
     
 
-def render_image_preview(image_path: str, dimensions: Tuple[int, int] = None) -> ImageTk.PhotoImage:
+
+def render_image_preview(image_path: str, size: Tuple[int, int] = None) -> ctk.CTkImage:
     image = Image.open(image_path)
-    if dimensions:
-        image = ImageOps.fit(image, dimensions, Image.LANCZOS)
-    return ImageTk.PhotoImage(image)
+    if size:
+        image = ImageOps.fit(image, size, Image.LANCZOS)
+    return ctk.CTkImage(image, size=image.size)
 
 
-def render_video_preview(video_path: str, dimensions: Tuple[int, int] = None, frame_number: int = 0) -> ImageTk.PhotoImage:
+def render_video_preview(video_path: str, size: Tuple[int, int] = None, frame_number: int = 0) -> ctk.CTkImage:
     capture = cv2.VideoCapture(video_path)
     if frame_number:
         capture.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
     has_frame, frame = capture.read()
     if has_frame:
         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        if dimensions:
-            image = ImageOps.fit(image, dimensions, Image.LANCZOS)
-        return ImageTk.PhotoImage(image)
+        if size:
+            image = ImageOps.fit(image, size, Image.LANCZOS)
+        return ctk.CTkImage(image, size=image.size)
     capture.release()
     cv2.destroyAllWindows()
 
