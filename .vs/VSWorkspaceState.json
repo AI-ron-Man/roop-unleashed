@@ -4,7 +4,9 @@
     "\\CodeFormer",
     "\\CodeFormer\\weights",
     "\\CodeFormer\\weights\\CodeFormer",
-    "\\roop"
+    "\\roop",
+    "\\roop\\processors",
+    "\\roop\\processors\\frame"
   ],
   "SelectedNode": "\\roop\\core.py",
   "PreviewInSolutionExplorer": false
