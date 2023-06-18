@@ -155,6 +155,8 @@ def get_platform():
     return sys.platform
 
 def open_with_default_app(filename):
+    if filename == None:
+        return
     platform = get_platform()
     if platform == 'darwin':
         subprocess.call(('open', filename))

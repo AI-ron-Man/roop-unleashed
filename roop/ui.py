@@ -6,7 +6,7 @@ import cv2
 from PIL import Image, ImageTk, ImageOps
 
 import roop.globals
-from roop.face_analyser import get_one_face
+from roop.face_analyser import get_many_faces, get_one_face, extract_face_images
 from roop.capturer import get_video_frame, get_video_frame_total
 from roop.processors.frame.core import get_frame_processors_modules
 from roop.utilities import is_image, is_video, resolve_relative_path, open_with_default_app
@@ -16,16 +16,28 @@ WINDOW_HEIGHT = 480
 WINDOW_WIDTH = 640
 PREVIEW_MAX_HEIGHT = 700
 PREVIEW_MAX_WIDTH = 1200
+IMAGE_BUTTON_WIDTH = 200
+IMAGE_BUTTON_HEIGHT = 200
+
 RECENT_DIRECTORY_SOURCE = None
 RECENT_DIRECTORY_TARGET = None
 RECENT_DIRECTORY_OUTPUT = None
 
+FACE_BUTTONS = []
+INPUT_FACES_DATA = None
+OUTPUT_FACES_DATA = None
+
+SELECTED_FACE_DATA_INPUT = None
+SELECTED_FACE_DATA_OUTPUT = None
+
+
+
 def init(start: Callable, destroy: Callable) -> ctk.CTk:
-    global ROOT, PREVIEW
+    global ROOT, PREVIEW, FACE_SELECT
 
     ROOT = create_root(start, destroy)
     PREVIEW = create_preview(ROOT)
-
+    FACE_SELECT = create_select_faces_win(ROOT)
     return ROOT
 
 
@@ -46,10 +58,10 @@ def create_root(start: Callable, destroy: Callable) -> ctk.CTk:
     base_x2 = 0.575
     base_y = 0.6
 
-    source_button = ctk.CTkButton(root, text='Select a face', width=200, height=200, compound='top', anchor='center', command=lambda: select_source_path())
+    source_button = ctk.CTkButton(root, text='Select a face', width=IMAGE_BUTTON_WIDTH, height=IMAGE_BUTTON_HEIGHT, compound='top', anchor='center', command=lambda: select_source_path())
     source_button.place(relx=base_x1, rely=0.05)
 
-    target_button = ctk.CTkButton(root, text='Select a target', width=200, height=200, compound='top', anchor='center', command=lambda: select_target_path())
+    target_button = ctk.CTkButton(root, text='Select a target', width=IMAGE_BUTTON_WIDTH, height=IMAGE_BUTTON_HEIGHT, compound='top', anchor='center', command=lambda: select_target_path())
     target_button.place(relx=base_x2, rely=0.05)
 
     
@@ -120,43 +132,58 @@ def update_status(text: str) -> None:
     status_label.configure(text=text)
     ROOT.update()
 
-def select_source_path() -> None:
-    global RECENT_DIRECTORY_SOURCE
 
 def select_source_path() -> None:
-    global RECENT_DIRECTORY_SOURCE
+    global RECENT_DIRECTORY_SOURCE, INPUT_FACES_DATA, SELECTED_FACE_DATA_INPUT
 
     PREVIEW.withdraw()
-    source_path = ctk.filedialog.askopenfilename(title='select an source image', initialdir=RECENT_DIRECTORY_SOURCE)
+    source_path = ctk.filedialog.askopenfilename(title='Select source image', initialdir=RECENT_DIRECTORY_SOURCE)
+    image = None
     if is_image(source_path):
         roop.globals.source_path = source_path
         RECENT_DIRECTORY_SOURCE = os.path.dirname(roop.globals.source_path)
-        image = render_image_preview(roop.globals.source_path, (200, 200))
-        source_button.configure(image=image)
+        INPUT_FACES_DATA = extract_face_images(roop.globals.source_path)
+        if len(INPUT_FACES_DATA) > 0:
+            if len(INPUT_FACES_DATA) == 1:
+                image = render_face_from_frame(INPUT_FACES_DATA[0][1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
+                SELECTED_FACE_DATA_INPUT = INPUT_FACES_DATA[0][0]
+            else:
+                show_face_selection(INPUT_FACES_DATA, True)
+        else:
+            roop.globals.source_path = None
     else:
         roop.globals.source_path = None
-        source_button.configure(image=None)
+    source_button.configure(image=image)
     source_button._draw()
 
 
 def select_target_path() -> None:
-    global RECENT_DIRECTORY_TARGET
+    global RECENT_DIRECTORY_TARGET, SELECTED_FACE_DATA_OUTPUT, OUTPUT_FACES_DATA
 
     PREVIEW.withdraw()
-    target_path = ctk.filedialog.askopenfilename(title='select an target image or video', initialdir=RECENT_DIRECTORY_TARGET)
-    if is_image(target_path):
+    target_path = ctk.filedialog.askopenfilename(title='Select target image or video', initialdir=RECENT_DIRECTORY_TARGET)
+    image = None
+    if is_image(target_path) and not target_path.lower().endswith(('gif')):
         roop.globals.target_path = target_path
         RECENT_DIRECTORY_TARGET = os.path.dirname(roop.globals.target_path)
-        image = render_image_preview(roop.globals.target_path, (200, 200))
-        target_button.configure(image=image)
-    elif is_video(target_path):
+        OUTPUT_FACES_DATA = extract_face_images(roop.globals.target_path)
+        if len(OUTPUT_FACES_DATA) > 0:
+            if len(OUTPUT_FACES_DATA) == 1:
+                image = render_face_from_frame(OUTPUT_FACES_DATA[0][1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
+                SELECTED_FACE_DATA_OUTPUT = OUTPUT_FACES_DATA[0][0]
+            else:
+                show_face_selection(OUTPUT_FACES_DATA, False)
+        else:
+            roop.globals.target_path = None
+
+    elif is_video(target_path) or target_path.lower().endswith(('gif')):
         roop.globals.target_path = target_path
         RECENT_DIRECTORY_TARGET = os.path.dirname(roop.globals.target_path)
-        video_frame = render_video_preview(target_path, (200, 200))
-        target_button.configure(image=video_frame)
+        image = render_video_preview(target_path, (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
     else:
         roop.globals.target_path = None
-        target_button.configure(image=None)
+
+    target_button.configure(image=image)
     target_button._draw()
 
 def select_output_path(start):
@@ -167,9 +194,9 @@ def select_output_path(start):
     global RECENT_DIRECTORY_OUTPUT
 
     if is_image(roop.globals.target_path):
-        output_path = ctk.filedialog.asksaveasfilename(title='save image output file', initialfile='output.png', initialdir=RECENT_DIRECTORY_OUTPUT)
+        output_path = ctk.filedialog.asksaveasfilename(title='Save image output file', initialfile='output.png', initialdir=RECENT_DIRECTORY_OUTPUT)
     elif is_video(roop.globals.target_path):
-        output_path = ctk.filedialog.asksaveasfilename(title='save video output file', initialfile='output.mp4', initialdir=RECENT_DIRECTORY_OUTPUT)
+        output_path = ctk.filedialog.asksaveasfilename(title='Save video output file', initialfile='output.mp4', initialdir=RECENT_DIRECTORY_OUTPUT)
     else:
         output_path = None
     if output_path:
@@ -187,6 +214,13 @@ def render_image_preview(image_path: str, size: Tuple[int, int] = None) -> ctk.C
     if size:
         image = ImageOps.fit(image, size, Image.LANCZOS)
     return ctk.CTkImage(image, size=image.size)
+
+
+def render_face_from_frame(face, size: Tuple[int, int] = None) -> ctk.CTkImage:
+    image = Image.fromarray(cv2.cvtColor(face, cv2.COLOR_BGR2RGB))
+    image = ImageOps.fit(image, (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT), Image.LANCZOS)
+    return ctk.CTkImage(image, size=image.size)
+
 
 
 def render_video_preview(video_path: str, size: Tuple[int, int] = None, frame_number: int = 0) -> ctk.CTkImage:
@@ -235,3 +269,86 @@ def update_preview(frame_number: int = 0) -> None:
         image = ImageTk.PhotoImage(image)
         preview_label.configure(image=image)
         preview_label.image = image
+
+
+def create_select_faces_win(parent) -> ctk.CTkToplevel:
+    face_win = ctk.CTkToplevel(parent)
+    face_win.minsize(800, 600)
+    face_win.title('Select Face(s)')
+    face_win.configure()
+    face_win.withdraw()
+    face_win.protocol('WM_DELETE_WINDOW', lambda: cancel_face_selection())
+    description_label = ctk.CTkLabel(face_win, text="Choose face by clicking on it", justify='center')
+    description_label.place(relx=0.05, rely=0.05, relwidth=0.8)
+    cancel_button = ctk.CTkButton(face_win, text='Cancel', command=lambda: cancel_face_selection())
+    cancel_button.place(relx=0.05, rely=0.9, relwidth=0.15, relheight=0.1)
+
+    return face_win
+
+def cancel_face_selection() -> None:
+    toggle_face_selection();
+    ROOT.wm_attributes('-disabled', False)
+    ROOT.focus()
+
+def select_face(index, is_input) -> None:
+    global SELECTED_FACE_DATA_INPUT, SELECTED_FACE_DATA_OUTPUT, source_button, target_button, INPUT_FACES_DATA, OUTPUT_FACES_DATA
+
+    if is_input:
+        SELECTED_FACE_DATA_INPUT = INPUT_FACES_DATA[index]
+        image = render_face_from_frame(SELECTED_FACE_DATA_INPUT[1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
+
+        source_button.configure(image=image)
+        source_button._draw()
+    else:
+        SELECTED_FACE_DATA_OUTPUT = OUTPUT_FACES_DATA[index]
+        image = render_face_from_frame(SELECTED_FACE_DATA_OUTPUT[1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
+        target_button.configure(image=image)
+        target_button._draw()
+
+    toggle_face_selection();
+    ROOT.wm_attributes('-disabled', False)
+    ROOT.focus()
+
+
+
+def toggle_face_selection() -> None:
+    if FACE_SELECT.state() == 'normal':
+        FACE_SELECT.withdraw()
+    else:
+        FACE_SELECT.deiconify()
+
+
+def show_face_selection(faces, is_input):
+    global FACE_BUTTONS
+
+    ROOT.wm_attributes('-disabled', True)
+
+    if len(FACE_BUTTONS) > 0:
+        for b in FACE_BUTTONS:
+            try:
+                b.place_forget()
+            except:
+                continue
+        FACE_BUTTONS.clear()
+
+    xpos = 0.05
+    ypos = 0.1
+    i = 0
+    for face in faces:
+        image = render_face_from_frame(face[1], (128, 128))
+        score = face[0]['det_score']
+        age = face[0]['age']
+        button_text = f'Score: {score} - Sex: {face[0].sex} - Age: {age}'
+        face_button = ctk.CTkButton(FACE_SELECT, text=button_text, width=128, height=128, compound='top', anchor='center', command=lambda faceindex=i: select_face(index=faceindex, is_input=is_input))
+        face_button.place(relx=xpos, rely=ypos)
+        xpos += 0.3
+        face_button.configure(image=image)
+        face_button._draw()
+        FACE_BUTTONS.append(face_button)
+        i += 1
+        if i % 3 == 0 and i / 3 > 0:
+            ypos += 0.4
+            xpos = 0.05
+
+    FACE_SELECT.deiconify()
+

@@ -3,11 +3,10 @@
     "",
     "\\CodeFormer",
     "\\CodeFormer\\weights",
-    "\\CodeFormer\\weights\\CodeFormer",
     "\\roop",
     "\\roop\\processors",
     "\\roop\\processors\\frame"
   ],
-  "SelectedNode": "\\roop\\core.py",
+  "SelectedNode": "\\roop\\globals.py",
   "PreviewInSolutionExplorer": false
 }
