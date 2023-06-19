@@ -2,6 +2,8 @@ from typing import Any
 import insightface
 import roop.globals
 import cv2
+from PIL import Image
+from roop.capturer import get_video_frame
 
 FACE_ANALYSER = None
 
@@ -30,16 +32,28 @@ def get_many_faces(frame: Any) -> Any:
     except IndexError:
         return None
 
-def extract_face_images(source_filename):
+def extract_face_images(source_filename, is_video):
     face_data = []
-    source_image = cv2.imread(source_filename)
+    source_image = None
+    
+    if is_video:
+        frame = get_video_frame(source_filename, 1)
+        if frame is not None:
+            source_image = frame
+        else:
+            return face_data
+    else:
+        source_image = cv2.imread(source_filename)
+
+        
     faces = get_many_faces(source_image)
 
     i = 0
     for face in faces:
         (startX, startY, endX, endY) = face['bbox'].astype("int")
         face_temp = source_image[startY:endY, startX:endX]
-        cv2.imwrite(f'{i}.png', face_temp)
+        if face_temp.size < 1:
+            continue
         i += 1
         face_data.append([face, face_temp])
     return face_data

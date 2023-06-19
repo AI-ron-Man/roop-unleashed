@@ -37,19 +37,19 @@ def get_frame_processors_modules(frame_processors):
     return FRAME_PROCESSORS_MODULES
 
 
-def multi_process_frame(source_path: str, temp_frame_paths: List[str], process_frames, progress) -> None:
+def multi_process_frame(source_face: Any, target_face: Any, temp_frame_paths: List[str], process_frames, progress) -> None:
     with ThreadPoolExecutor(max_workers=roop.globals.execution_threads) as executor:
         futures = []
         for path in temp_frame_paths:
-            future = executor.submit(process_frames, source_path, [path], progress)
+            future = executor.submit(process_frames, source_face, target_face, [path], progress)
             futures.append(future)
         for future in futures:
             future.result()
 
 
-def process_video(source_path: str, frame_paths: list[str], process_frames: Any) -> None:
+def process_video(source_face: Any, target_face: Any, frame_paths: list[str], process_frames: Any) -> None:
     progress_bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]'
     total = len(frame_paths)
     with tqdm(total=total, desc='Processing', unit='frame', dynamic_ncols=True, bar_format=progress_bar_format) as progress:
         progress.set_postfix({'execution_providers': roop.globals.execution_providers, 'threads': roop.globals.execution_threads, 'memory': roop.globals.max_memory})
-        multi_process_frame(source_path, frame_paths, process_frames, progress)
+        multi_process_frame(source_face, target_face, frame_paths, process_frames, progress)

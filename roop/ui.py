@@ -9,7 +9,7 @@ import roop.globals
 from roop.face_analyser import get_many_faces, get_one_face, extract_face_images
 from roop.capturer import get_video_frame, get_video_frame_total
 from roop.processors.frame.core import get_frame_processors_modules
-from roop.utilities import is_image, is_video, resolve_relative_path, open_with_default_app
+from roop.utilities import is_image, is_video, resolve_relative_path, open_with_default_app, compute_cosine_distance
 
 
 WINDOW_HEIGHT = 480
@@ -142,7 +142,7 @@ def select_source_path() -> None:
     if is_image(source_path):
         roop.globals.source_path = source_path
         RECENT_DIRECTORY_SOURCE = os.path.dirname(roop.globals.source_path)
-        INPUT_FACES_DATA = extract_face_images(roop.globals.source_path)
+        INPUT_FACES_DATA = extract_face_images(roop.globals.source_path, False)
         if len(INPUT_FACES_DATA) > 0:
             if len(INPUT_FACES_DATA) == 1:
                 image = render_face_from_frame(INPUT_FACES_DATA[0][1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
@@ -166,20 +166,42 @@ def select_target_path() -> None:
     if is_image(target_path) and not target_path.lower().endswith(('gif')):
         roop.globals.target_path = target_path
         RECENT_DIRECTORY_TARGET = os.path.dirname(roop.globals.target_path)
-        OUTPUT_FACES_DATA = extract_face_images(roop.globals.target_path)
-        if len(OUTPUT_FACES_DATA) > 0:
-            if len(OUTPUT_FACES_DATA) == 1:
-                image = render_face_from_frame(OUTPUT_FACES_DATA[0][1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
-                SELECTED_FACE_DATA_OUTPUT = OUTPUT_FACES_DATA[0][0]
-            else:
-                show_face_selection(OUTPUT_FACES_DATA, False)
+        if roop.globals.many_faces:
+            SELECTED_FACE_DATA_OUTPUT = None
+            image = render_image_preview(target_path, (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
         else:
-            roop.globals.target_path = None
+            OUTPUT_FACES_DATA = extract_face_images(roop.globals.target_path, False)
+            if len(OUTPUT_FACES_DATA) > 0:
+                if len(OUTPUT_FACES_DATA) == 1:
+                    image = render_face_from_frame(OUTPUT_FACES_DATA[0][1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
+                    SELECTED_FACE_DATA_OUTPUT = OUTPUT_FACES_DATA[0][0]
+                    if SELECTED_FACE_DATA_INPUT is not None:
+                        emb1 = SELECTED_FACE_DATA_INPUT['embedding']
+                        emb2 = SELECTED_FACE_DATA_OUTPUT['embedding']
+                        dist = compute_cosine_distance(emb1, emb2)
+                        print(f'Similarity Distance between Source->Target={dist}')
+                else:
+                    show_face_selection(OUTPUT_FACES_DATA, False)
+            else:
+                roop.globals.target_path = None
 
     elif is_video(target_path) or target_path.lower().endswith(('gif')):
         roop.globals.target_path = target_path
         RECENT_DIRECTORY_TARGET = os.path.dirname(roop.globals.target_path)
-        image = render_video_preview(target_path, (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
+        if roop.globals.many_faces:
+            SELECTED_FACE_DATA_OUTPUT = None
+            image = render_video_preview(target_path, (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
+        else:
+            OUTPUT_FACES_DATA = extract_face_images(roop.globals.target_path, True)
+            if len(OUTPUT_FACES_DATA) > 0:
+                if len(OUTPUT_FACES_DATA) == 1:
+                    image = render_face_from_frame(OUTPUT_FACES_DATA[0][1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
+                    SELECTED_FACE_DATA_OUTPUT = OUTPUT_FACES_DATA[0][0]
+                else:
+                    show_face_selection(OUTPUT_FACES_DATA, False)
+            else:
+                roop.globals.target_path = None
+        
     else:
         roop.globals.target_path = None
 
@@ -272,16 +294,19 @@ def update_preview(frame_number: int = 0) -> None:
 
 
 def create_select_faces_win(parent) -> ctk.CTkToplevel:
+    global scrollable_frame
+
     face_win = ctk.CTkToplevel(parent)
-    face_win.minsize(800, 600)
+    face_win.minsize(800, 400)
     face_win.title('Select Face(s)')
     face_win.configure()
     face_win.withdraw()
     face_win.protocol('WM_DELETE_WINDOW', lambda: cancel_face_selection())
-    description_label = ctk.CTkLabel(face_win, text="Choose face by clicking on it", justify='center')
-    description_label.place(relx=0.05, rely=0.05, relwidth=0.8)
+    scrollable_frame = ctk.CTkScrollableFrame(face_win, orientation='horizontal', label_text='Choose face by clicking on it', width=(IMAGE_BUTTON_WIDTH + 40)*3, height=IMAGE_BUTTON_HEIGHT+32)
+    scrollable_frame.grid(row=0, column=0, padx=20, pady=20)
+    scrollable_frame.place(relx=0.05, rely=0.05)
     cancel_button = ctk.CTkButton(face_win, text='Cancel', command=lambda: cancel_face_selection())
-    cancel_button.place(relx=0.05, rely=0.9, relwidth=0.15, relheight=0.1)
+    cancel_button.place(relx=0.05, rely=0.85, relwidth=0.075, relheight=0.075)
 
     return face_win
 
@@ -294,16 +319,20 @@ def select_face(index, is_input) -> None:
     global SELECTED_FACE_DATA_INPUT, SELECTED_FACE_DATA_OUTPUT, source_button, target_button, INPUT_FACES_DATA, OUTPUT_FACES_DATA
 
     if is_input:
-        SELECTED_FACE_DATA_INPUT = INPUT_FACES_DATA[index]
-        image = render_face_from_frame(SELECTED_FACE_DATA_INPUT[1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
-
+        SELECTED_FACE_DATA_INPUT = INPUT_FACES_DATA[index][0]
+        image = render_face_from_frame(INPUT_FACES_DATA[index][1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
         source_button.configure(image=image)
         source_button._draw()
     else:
-        SELECTED_FACE_DATA_OUTPUT = OUTPUT_FACES_DATA[index]
-        image = render_face_from_frame(SELECTED_FACE_DATA_OUTPUT[1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
+        SELECTED_FACE_DATA_OUTPUT = OUTPUT_FACES_DATA[index][0]
+        image = render_face_from_frame(OUTPUT_FACES_DATA[index][1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
         target_button.configure(image=image)
         target_button._draw()
+        if SELECTED_FACE_DATA_INPUT is not None:
+            emb1 = SELECTED_FACE_DATA_INPUT['embedding']
+            emb2 = SELECTED_FACE_DATA_OUTPUT['embedding']
+            dist = compute_cosine_distance(emb1, emb2)
+            print(f'Similarity Distance between Source->Target={dist}')
 
     toggle_face_selection();
     ROOT.wm_attributes('-disabled', False)
@@ -319,14 +348,15 @@ def toggle_face_selection() -> None:
 
 
 def show_face_selection(faces, is_input):
-    global FACE_BUTTONS
+    global FACE_BUTTONS, scrollable_frame
 
     ROOT.wm_attributes('-disabled', True)
 
     if len(FACE_BUTTONS) > 0:
         for b in FACE_BUTTONS:
             try:
-                b.place_forget()
+                # b.place_forget()
+                b.destroy()
             except:
                 continue
         FACE_BUTTONS.clear()
@@ -339,8 +369,9 @@ def show_face_selection(faces, is_input):
         score = face[0]['det_score']
         age = face[0]['age']
         button_text = f'Score: {score} - Sex: {face[0].sex} - Age: {age}'
-        face_button = ctk.CTkButton(FACE_SELECT, text=button_text, width=128, height=128, compound='top', anchor='center', command=lambda faceindex=i: select_face(index=faceindex, is_input=is_input))
-        face_button.place(relx=xpos, rely=ypos)
+        face_button = ctk.CTkButton(scrollable_frame, text=button_text, width=128, height=128, compound='top', anchor='center', command=lambda faceindex=i: select_face(index=faceindex, is_input=is_input))
+        face_button.grid(row=0, column=i, pady=5, padx=5)
+        #face_button.place(relx=xpos, rely=ypos)
         xpos += 0.3
         face_button.configure(image=image)
         face_button._draw()

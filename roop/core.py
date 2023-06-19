@@ -146,9 +146,9 @@ def pre_check() -> bool:
     if sys.version_info < (3, 9):
         update_status('Python version is not supported - please upgrade to 3.9 or higher.')
         return False
-    if not shutil.which('ffmpeg'):
-        update_status('ffmpeg is not installed.')
-        return False
+    #if not shutil.which('ffmpeg'):
+    #    update_status('ffmpeg is not installed.')
+    #    return False
     return True
 
 
@@ -177,7 +177,7 @@ def start() -> None:
                 target = roop.globals.output_path
 
             update_status(f'{frame_processor.NAME} in progress...')
-            frame_processor.process_image(roop.globals.source_path, target, roop.globals.output_path)
+            frame_processor.process_image(ui.SELECTED_FACE_DATA_INPUT, ui.SELECTED_FACE_DATA_OUTPUT, target, roop.globals.output_path)
             release_resources()
         if is_image(roop.globals.target_path):
             update_status('Processing to image succeed!')
@@ -198,7 +198,7 @@ def start() -> None:
             continue
 
         update_status(f'{frame_processor.NAME} in progress...')
-        frame_processor.process_video(roop.globals.source_path, temp_frame_paths)
+        frame_processor.process_video(ui.SELECTED_FACE_DATA_INPUT, ui.SELECTED_FACE_DATA_OUTPUT, temp_frame_paths)
         release_resources()
     # handles fps
     if roop.globals.keep_fps:
