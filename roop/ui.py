@@ -142,7 +142,7 @@ def select_source_path() -> None:
     if is_image(source_path):
         roop.globals.source_path = source_path
         RECENT_DIRECTORY_SOURCE = os.path.dirname(roop.globals.source_path)
-        INPUT_FACES_DATA = extract_face_images(roop.globals.source_path, False)
+        INPUT_FACES_DATA = extract_face_images(roop.globals.source_path,  (False, 0))
         if len(INPUT_FACES_DATA) > 0:
             if len(INPUT_FACES_DATA) == 1:
                 image = render_face_from_frame(INPUT_FACES_DATA[0][1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
@@ -170,7 +170,7 @@ def select_target_path() -> None:
             SELECTED_FACE_DATA_OUTPUT = None
             image = render_image_preview(target_path, (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
         else:
-            OUTPUT_FACES_DATA = extract_face_images(roop.globals.target_path, False)
+            OUTPUT_FACES_DATA = extract_face_images(roop.globals.target_path, (False, 0))
             if len(OUTPUT_FACES_DATA) > 0:
                 if len(OUTPUT_FACES_DATA) == 1:
                     image = render_face_from_frame(OUTPUT_FACES_DATA[0][1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
@@ -192,7 +192,17 @@ def select_target_path() -> None:
             SELECTED_FACE_DATA_OUTPUT = None
             image = render_video_preview(target_path, (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
         else:
-            OUTPUT_FACES_DATA = extract_face_images(roop.globals.target_path, True)
+            max_frame = get_video_frame_total(roop.globals.target_path)
+            dialog = ctk.CTkInputDialog(text=f"Please input frame number with target face (1 - {max_frame})", title="Extract Face from Video")
+            selected_frame = dialog.get_input()
+            try:
+                selected_frame = int(selected_frame)
+            except:
+                selected_frame = 1
+            
+            selected_frame = max(selected_frame, 1)
+            selected_frame = min(selected_frame, max_frame)
+            OUTPUT_FACES_DATA = extract_face_images(roop.globals.target_path, (True, selected_frame))
             if len(OUTPUT_FACES_DATA) > 0:
                 if len(OUTPUT_FACES_DATA) == 1:
                     image = render_face_from_frame(OUTPUT_FACES_DATA[0][1], (IMAGE_BUTTON_WIDTH, IMAGE_BUTTON_HEIGHT))
@@ -361,8 +371,6 @@ def show_face_selection(faces, is_input):
                 continue
         FACE_BUTTONS.clear()
 
-    xpos = 0.05
-    ypos = 0.1
     i = 0
     for face in faces:
         image = render_face_from_frame(face[1], (128, 128))
@@ -371,15 +379,10 @@ def show_face_selection(faces, is_input):
         button_text = f'Score: {score} - Sex: {face[0].sex} - Age: {age}'
         face_button = ctk.CTkButton(scrollable_frame, text=button_text, width=128, height=128, compound='top', anchor='center', command=lambda faceindex=i: select_face(index=faceindex, is_input=is_input))
         face_button.grid(row=0, column=i, pady=5, padx=5)
-        #face_button.place(relx=xpos, rely=ypos)
-        xpos += 0.3
         face_button.configure(image=image)
         face_button._draw()
         FACE_BUTTONS.append(face_button)
         i += 1
-        if i % 3 == 0 and i / 3 > 0:
-            ypos += 0.4
-            xpos = 0.05
 
     FACE_SELECT.deiconify()
 

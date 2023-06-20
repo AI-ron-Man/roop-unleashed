@@ -32,12 +32,12 @@ def get_many_faces(frame: Any) -> Any:
     except IndexError:
         return None
 
-def extract_face_images(source_filename, is_video):
+def extract_face_images(source_filename, video_info):
     face_data = []
     source_image = None
     
-    if is_video:
-        frame = get_video_frame(source_filename, 1)
+    if video_info[0]:
+        frame = get_video_frame(source_filename, video_info[1])
         if frame is not None:
             source_image = frame
         else:
