@@ -7,6 +7,7 @@ import roop.globals
 import roop.processors.frame.core
 from roop.core import update_status
 from roop.face_analyser import get_one_face
+from roop.typing import Frame, Face
 from roop.utilities import conditional_download, resolve_relative_path, is_image, is_video
 from PIL import Image
 from numpy import asarray
@@ -30,18 +31,18 @@ def pre_start() -> bool:
     return True
 
 
-def get_face_enhancer() -> None:
+def get_face_enhancer() -> Any:
     global FACE_ENHANCER
 
     with THREAD_LOCK:
         if FACE_ENHANCER is None:
             model_path = resolve_relative_path('../models/GFPGANv1.4.pth')
             # todo: set models path https://github.com/TencentARC/GFPGAN/issues/399
-            FACE_ENHANCER = gfpgan.GFPGANer(model_path=model_path, upscale=1)
+            FACE_ENHANCER = gfpgan.GFPGANer(model_path=model_path, upscale=1) # type: ignore[attr-defined]
     return FACE_ENHANCER
 
 
-def enhance_face(temp_frame: Any) -> Any:
+def enhance_face(temp_frame: Frame) -> Frame:
     with THREAD_SEMAPHORE:
         temp_frame_original = Image.fromarray(temp_frame)
         _, _, temp_frame = get_face_enhancer().enhance(
@@ -51,14 +52,14 @@ def enhance_face(temp_frame: Any) -> Any:
         temp_frame = Image.blend(temp_frame_original, Image.fromarray(temp_frame), 0.75)
     return asarray(temp_frame)
 
-def process_frame(source_face: Any, temp_frame: Any) -> Any:
+def process_frame(source_face: Face, target_face: Face, temp_frame: Frame) -> Frame:
     target_face = get_one_face(temp_frame)
     if target_face:
         temp_frame = enhance_face(temp_frame)
     return temp_frame
 
 
-def process_frames(source_path: str, temp_frame_paths: List[str], progress=None) -> None:
+def process_frames(source_path: str, temp_frame_paths: List[str], progress: Any = None) -> None:
     for temp_frame_path in temp_frame_paths:
         temp_frame = cv2.imread(temp_frame_path)
         result = process_frame(None, temp_frame)

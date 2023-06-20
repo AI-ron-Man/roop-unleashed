@@ -6,14 +6,18 @@ import cv2
 from PIL import Image, ImageTk, ImageOps
 
 import roop.globals
+import roop.metadata
 from roop.face_analyser import get_many_faces, get_one_face, extract_face_images
 from roop.capturer import get_video_frame, get_video_frame_total
+#from roop.predicter import predict_frame
 from roop.processors.frame.core import get_frame_processors_modules
 from roop.utilities import is_image, is_video, resolve_relative_path, open_with_default_app, compute_cosine_distance
 
+ROOT = None
+ROOT_HEIGHT = 700
+ROOT_WIDTH = 600
 
-WINDOW_HEIGHT = 480
-WINDOW_WIDTH = 640
+PREVIEW = None
 PREVIEW_MAX_HEIGHT = 700
 PREVIEW_MAX_WIDTH = 1200
 IMAGE_BUTTON_WIDTH = 200
@@ -23,6 +27,11 @@ RECENT_DIRECTORY_SOURCE = None
 RECENT_DIRECTORY_TARGET = None
 RECENT_DIRECTORY_OUTPUT = None
 
+preview_label = None
+preview_slider = None
+source_label = None
+target_label = None
+status_label = None
 FACE_BUTTONS = []
 INPUT_FACES_DATA = None
 OUTPUT_FACES_DATA = None
@@ -49,8 +58,8 @@ def create_root(start: Callable, destroy: Callable) -> ctk.CTk:
     ctk.set_appearance_mode('system')
     ctk.set_default_color_theme(resolve_relative_path('ui.json'))
     root = ctk.CTk()
-    root.minsize(WINDOW_WIDTH, WINDOW_HEIGHT)
-    root.title('roop')
+    root.minsize(ROOT_WIDTH, ROOT_HEIGHT)
+    root.title(f'{roop.metadata.name} {roop.metadata.version}')
     root.configure()
     root.protocol('WM_DELETE_WINDOW', lambda: destroy())
 
@@ -107,7 +116,7 @@ def create_root(start: Callable, destroy: Callable) -> ctk.CTk:
 def create_preview(parent) -> ctk.CTkToplevel:
     global preview_label, preview_slider
 
-def create_preview(parent) -> ctk.CTkToplevel:
+def create_preview(parent: ctk.CTkToplevel) -> ctk.CTkToplevel:
     global preview_label, preview_slider
 
     preview = ctk.CTkToplevel(parent)
@@ -222,13 +231,13 @@ def select_output_path(start):
     global RECENT_DIRECTORY_OUTPUT
 
 
-def select_output_path(start):
+def select_output_path(start: Callable[[], None]) -> None:
     global RECENT_DIRECTORY_OUTPUT
 
     if is_image(roop.globals.target_path):
-        output_path = ctk.filedialog.asksaveasfilename(title='Save image output file', initialfile='output.png', initialdir=RECENT_DIRECTORY_OUTPUT)
+        output_path = ctk.filedialog.asksaveasfilename(title='save image output file', defaultextension='.png', initialfile='output.png', initialdir=RECENT_DIRECTORY_OUTPUT)
     elif is_video(roop.globals.target_path):
-        output_path = ctk.filedialog.asksaveasfilename(title='Save video output file', initialfile='output.mp4', initialdir=RECENT_DIRECTORY_OUTPUT)
+        output_path = ctk.filedialog.asksaveasfilename(title='save video output file', defaultextension='.mp4', initialfile='output.mp4', initialdir=RECENT_DIRECTORY_OUTPUT)
     else:
         output_path = None
     if output_path:
@@ -241,7 +250,7 @@ def show_result():
     
 
 
-def render_image_preview(image_path: str, size: Tuple[int, int] = None) -> ctk.CTkImage:
+def render_image_preview(image_path: str, size: Tuple[int, int]) -> ctk.CTkImage:
     image = Image.open(image_path)
     if size:
         image = ImageOps.fit(image, size, Image.LANCZOS)
@@ -254,8 +263,7 @@ def render_face_from_frame(face, size: Tuple[int, int] = None) -> ctk.CTkImage:
     return ctk.CTkImage(image, size=image.size)
 
 
-
-def render_video_preview(video_path: str, size: Tuple[int, int] = None, frame_number: int = 0) -> ctk.CTkImage:
+def render_video_preview(video_path: str, size: Tuple[int, int], frame_number: int = 0) -> ctk.CTkImage:
     capture = cv2.VideoCapture(video_path)
     if frame_number:
         capture.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
@@ -290,17 +298,14 @@ def init_preview() -> None:
 
 def update_preview(frame_number: int = 0) -> None:
     if roop.globals.source_path and roop.globals.target_path:
-        video_frame = None
+        temp_frame = get_video_frame(roop.globals.target_path, frame_number)
+
         for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):
-            video_frame = frame_processor.process_frame(
-                get_one_face(cv2.imread(roop.globals.source_path)),
-                get_video_frame(roop.globals.target_path, frame_number)
-            )
-        image = Image.fromarray(cv2.cvtColor(video_frame, cv2.COLOR_BGR2RGB))
+            temp_frame = frame_processor.process_frame(source_face=SELECTED_FACE_DATA_INPUT, target_face=SELECTED_FACE_DATA_OUTPUT, temp_frame=temp_frame)
+        image = Image.fromarray(cv2.cvtColor(temp_frame, cv2.COLOR_BGR2RGB))
         image = ImageOps.contain(image, (PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT), Image.LANCZOS)
-        image = ImageTk.PhotoImage(image)
+        image = ctk.CTkImage(image, size=image.size)
         preview_label.configure(image=image)
-        preview_label.image = image
 
 
 def create_select_faces_win(parent) -> ctk.CTkToplevel:

@@ -7,6 +7,7 @@ import roop.globals
 import roop.processors.frame.core
 from roop.core import update_status
 from roop.face_analyser import get_one_face, get_many_faces
+from roop.typing import Face, Frame
 from roop.utilities import conditional_download, resolve_relative_path, is_image, is_video, compute_cosine_distance
 
 FACE_SWAPPER = None
@@ -35,7 +36,7 @@ def pre_start() -> bool:
     return True
 
 
-def get_face_swapper() -> None:
+def get_face_swapper() -> Any:
     global FACE_SWAPPER
 
     with THREAD_LOCK:
@@ -45,11 +46,11 @@ def get_face_swapper() -> None:
     return FACE_SWAPPER
 
 
-def swap_face(source_face: Any, target_face: Any, temp_frame: Any) -> Any:
+def swap_face(source_face: Face, target_face: Face, temp_frame: Frame) -> Frame:
     return get_face_swapper().get(temp_frame, target_face, source_face, paste_back=True)
 
 
-def process_frame(source_face: Any, target_face: Any, temp_frame: Any) -> Any:
+def process_frame(source_face: Face, target_face: Face, temp_frame: Frame) -> Any:
     global DIST_THRESHOLD
 
     if roop.globals.many_faces:
@@ -79,7 +80,7 @@ def process_frame(source_face: Any, target_face: Any, temp_frame: Any) -> Any:
 
 
 
-def process_frames(source_face: Any, target_face: Any, temp_frame_paths: List[str], progress=None) -> None:
+def process_frames(source_face: Face, target_face: Face, temp_frame_paths: List[str], progress=None) -> None:
     for temp_frame_path in temp_frame_paths:
         temp_frame = cv2.imread(temp_frame_path)
         try:

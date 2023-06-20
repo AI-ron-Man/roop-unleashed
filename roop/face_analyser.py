@@ -1,6 +1,8 @@
 from typing import Any
 import insightface
+
 import roop.globals
+from roop.typing import Frame
 import cv2
 from PIL import Image
 from roop.capturer import get_video_frame
@@ -17,7 +19,7 @@ def get_face_analyser() -> Any:
     return FACE_ANALYSER
 
 
-def get_one_face(frame: Any) -> Any:
+def get_one_face(frame: Frame) -> Any:
     face = get_face_analyser().get(frame)
     try:
         return min(face, key=lambda x: x.bbox[0])
@@ -25,7 +27,7 @@ def get_one_face(frame: Any) -> Any:
         return None
 
 
-def get_many_faces(frame: Any) -> Any:
+def get_many_faces(frame: Frame) -> Any:
     try:
         faces = get_face_analyser().get(frame)
         return sorted(faces, key = lambda x : x.bbox[0])
