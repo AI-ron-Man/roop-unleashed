@@ -50,7 +50,7 @@ def swap_face(source_face: Face, target_face: Face, temp_frame: Frame) -> Frame:
     return get_face_swapper().get(temp_frame, target_face, source_face, paste_back=True)
 
 
-def process_frame(source_face: Face, target_face: Face, temp_frame: Frame) -> Any:
+def process_frame(source_face: Face, target_face: Face, temp_frame: Frame) -> Frame:
     global DIST_THRESHOLD
 
     if roop.globals.many_faces:

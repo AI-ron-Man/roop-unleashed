@@ -1,12 +1,12 @@
 import os
 import customtkinter as ctk
-from typing import Callable, Tuple
-
+import webbrowser
 import cv2
-from PIL import Image, ImageTk, ImageOps
-
 import roop.globals
 import roop.metadata
+
+from typing import Callable, Tuple
+from PIL import Image, ImageOps
 from roop.face_analyser import get_many_faces, get_one_face, extract_face_images
 from roop.capturer import get_video_frame, get_video_frame_total
 #from roop.predicter import predict_frame
@@ -14,7 +14,7 @@ from roop.processors.frame.core import get_frame_processors_modules
 from roop.utilities import is_image, is_video, resolve_relative_path, open_with_default_app, compute_cosine_distance
 
 ROOT = None
-ROOT_HEIGHT = 700
+ROOT_HEIGHT = 550
 ROOT_WIDTH = 600
 
 PREVIEW = None
@@ -110,6 +110,11 @@ def create_root(start: Callable, destroy: Callable) -> ctk.CTk:
 
     status_label = ctk.CTkLabel(root, text=None, justify='center')
     status_label.place(relx=base_x1, rely=0.9, relwidth=0.8)
+
+    donate_label = ctk.CTkLabel(root, text='Visit the Github Page', justify='center', cursor='hand2')
+    donate_label.place(relx=0.1, rely=0.95, relwidth=0.8)
+    donate_label.configure(text_color=ctk.ThemeManager.theme.get('RoopDonate').get('text_color'))
+    donate_label.bind('<Button>', lambda event: webbrowser.open('https://github.com/C0untFloyd/roop-unleashed'))
 
     return root
 

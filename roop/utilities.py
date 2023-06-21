@@ -54,7 +54,7 @@ def create_video(target_path: str, fps: float = 30.0) -> None:
     temp_directory_path = get_temp_directory_path(target_path)
     run_ffmpeg(['-r', str(fps), '-i', os.path.join(temp_directory_path, '%04d.png'), '-c:v', roop.globals.video_encoder, '-crf', str(roop.globals.video_quality), '-pix_fmt', 'yuv420p', '-vf', 'colorspace=bt709:iall=bt601-6-625:fast=1', '-y', temp_output_path])
     # ffmpeg -hide_banner -hwaccel auto -loglevel error -r 30.0 -i G:/delme\\temp\\te1533...0\\%04d.png -c:v libx264 -crf 18
-    
+
 
 def restore_audio(target_path: str, output_path: str) -> None:
     temp_output_path = get_temp_output_path(target_path)
