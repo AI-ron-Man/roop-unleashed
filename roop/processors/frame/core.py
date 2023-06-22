@@ -1,6 +1,9 @@
+import os
 import sys
 import importlib
-from concurrent.futures import ThreadPoolExecutor
+import psutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from queue import Queue
 from types import ModuleType
 from typing import Any, List, Callable
 from tqdm import tqdm
@@ -12,6 +15,7 @@ FRAME_PROCESSORS_INTERFACE = [
     'pre_check',
     'pre_start',
     'process_frame',
+    'process_frames',
     'process_image',
     'process_video'
 ]
@@ -38,19 +42,46 @@ def get_frame_processors_modules(frame_processors: List[str]) -> List[ModuleType
     return FRAME_PROCESSORS_MODULES
 
 
-def multi_process_frame(source_face: Any, target_face: Any, temp_frame_paths: List[str], process_frames: Callable[[str, List[str], Any], None], progress: Any = None) -> None:
+def multi_process_frame(source_face: Any, target_face: Any, temp_frame_paths: List[str], process_frames: Callable[[str, List[str], Any], None], update: Callable[[], None]) -> None:
     with ThreadPoolExecutor(max_workers=roop.globals.execution_threads) as executor:
         futures = []
-        for path in temp_frame_paths:
-            future = executor.submit(process_frames, source_face, target_face, [path], progress)
+        queue = create_queue(temp_frame_paths)
+        queue_per_future = len(temp_frame_paths) // roop.globals.execution_threads
+        while not queue.empty():
+            future = executor.submit(process_frames, source_face, target_face, pick_queue(queue, queue_per_future), update)
             futures.append(future)
-        for future in futures:
+        for future in as_completed(futures):
             future.result()
 
 
-def process_video(source_face: Any, target_face: Any, frame_paths: list[str], process_frames: Callable[[str, List[str], Any], None]) -> None:
+def create_queue(temp_frame_paths: List[str]) -> Queue[str]:
+    queue: Queue[str] = Queue()
+    for frame_path in temp_frame_paths:
+        queue.put(frame_path)
+    return queue
+
+
+def pick_queue(queue: Queue[str], queue_per_future: int) -> List[str]:
+    queues = []
+    for _ in range(queue_per_future):
+        queues.append(queue.get())
+    return queues
+
+
+def process_video(source_face: Face, target_face: Face, frame_paths: list[str], process_frames: Callable[[str, List[str], Any], None]) -> None:
     progress_bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]'
     total = len(frame_paths)
     with tqdm(total=total, desc='Processing', unit='frame', dynamic_ncols=True, bar_format=progress_bar_format) as progress:
-        progress.set_postfix({'execution_providers': roop.globals.execution_providers, 'execution_threads': roop.globals.execution_threads, 'max_memory': roop.globals.max_memory})
-        multi_process_frame(source_face, target_face, frame_paths, process_frames, progress)
+        multi_process_frame(source_path, frame_paths, process_frames, lambda: update_progress(progress))
+
+
+def update_progress(progress: Any = None) -> None:
+    process = psutil.Process(os.getpid())
+    memory_usage = process.memory_info().rss / 1024 / 1024 / 1024
+    progress.set_postfix({
+        'memory_usage': '{:.2f}'.format(memory_usage).zfill(5) + 'GB',
+        'execution_providers': roop.globals.execution_providers,
+        'execution_threads': roop.globals.execution_threads
+    })
+    progress.refresh()
+    progress.update(1)
