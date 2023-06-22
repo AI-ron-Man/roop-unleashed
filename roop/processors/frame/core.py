@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue
 from types import ModuleType
 from typing import Any, List, Callable
+from roop.typing import Face
 from tqdm import tqdm
 
 import roop
@@ -42,14 +43,18 @@ def get_frame_processors_modules(frame_processors: List[str]) -> List[ModuleType
     return FRAME_PROCESSORS_MODULES
 
 
-def multi_process_frame(source_face: Any, target_face: Any, temp_frame_paths: List[str], process_frames: Callable[[str, List[str], Any], None], update: Callable[[], None]) -> None:
+def multi_process_frame(source_face: Face, target_face: Face, temp_frame_paths: List[str], process_frames: Callable[[str, List[str], Any], None], update: Callable[[], None]) -> None:
     with ThreadPoolExecutor(max_workers=roop.globals.execution_threads) as executor:
         futures = []
         queue = create_queue(temp_frame_paths)
-        queue_per_future = len(temp_frame_paths) // roop.globals.execution_threads
+        total = len(temp_frame_paths)
+        queue_per_future = total // roop.globals.execution_threads
         while not queue.empty():
+            if total < queue_per_future:
+                queue_per_future = total
             future = executor.submit(process_frames, source_face, target_face, pick_queue(queue, queue_per_future), update)
             futures.append(future)
+            total -= queue_per_future
         for future in as_completed(futures):
             future.result()
 
@@ -72,7 +77,7 @@ def process_video(source_face: Face, target_face: Face, frame_paths: list[str], 
     progress_bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]'
     total = len(frame_paths)
     with tqdm(total=total, desc='Processing', unit='frame', dynamic_ncols=True, bar_format=progress_bar_format) as progress:
-        multi_process_frame(source_path, frame_paths, process_frames, lambda: update_progress(progress))
+        multi_process_frame(source_face, target_face, frame_paths, process_frames, lambda: update_progress(progress))
 
 
 def update_progress(progress: Any = None) -> None:

@@ -83,12 +83,8 @@ def process_frame(source_face: Face, target_face: Face, temp_frame: Frame) -> Fr
 def process_frames(source_face: Face, target_face: Face, temp_frame_paths: List[str], update: Callable[[], None]) -> None:
     for temp_frame_path in temp_frame_paths:
         temp_frame = cv2.imread(temp_frame_path)
-        try:
-            result = process_frame(source_face, target_face, temp_frame)
-            cv2.imwrite(temp_frame_path, result)
-        except Exception as exception:
-            print(exception)
-            pass
+        result = process_frame(source_face, target_face, temp_frame)
+        cv2.imwrite(temp_frame_path, result)
         if update:
             update()
 
@@ -105,5 +101,5 @@ def process_image(source_face: Any, target_face: Any, target_path: str, output_p
 def process_video(source_face: Any, target_face: Any, temp_frame_paths: List[str]) -> None:
     global DIST_THRESHOLD
 
-    DIST_THRESHOLD = 0.7
+    DIST_THRESHOLD = 0.8
     roop.processors.frame.core.process_video(source_face, target_face, temp_frame_paths, process_frames)
