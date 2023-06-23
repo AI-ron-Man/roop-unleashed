@@ -52,14 +52,14 @@ def enhance_face(temp_frame: Frame) -> Frame:
         temp_frame = Image.blend(temp_frame_original, Image.fromarray(temp_frame), 0.75)
     return asarray(temp_frame)
 
-def process_frame(source_face: Face, target_face: Face, temp_frame: Frame) -> Frame:
+def process_frame(source_path: str, temp_frame: Frame) -> Frame:
     target_face = get_one_face(temp_frame)
     if target_face:
         temp_frame = enhance_face(temp_frame)
     return temp_frame
 
 
-def process_frames(source_path: str, temp_frame_paths: List[str], update: Callable[[], None]) -> None:
+def process_frames(source_face: Face, target_face: Face, temp_frame_paths: List[str], update: Callable[[], None]) -> None:
     for temp_frame_path in temp_frame_paths:
         temp_frame = cv2.imread(temp_frame_path)
         result = process_frame(None, temp_frame)
@@ -68,11 +68,11 @@ def process_frames(source_path: str, temp_frame_paths: List[str], update: Callab
             update()
 
 
-def process_image(source_face: Any, target_face: Any, target_path: str, output_path: str) -> None:
+def process_image(source_face: Face, target_face: Face, target_path: str, output_path: str) -> None:
     target_frame = cv2.imread(target_path)
     result = process_frame(None, target_frame)
     cv2.imwrite(output_path, result)
 
 
 def process_video(source_face: Any, target_face: Any, temp_frame_paths: List[str]) -> None:
-    roop.processors.frame.core.process_video(None, temp_frame_paths, process_frames)
+    roop.processors.frame.core.process_video(source_face, target_face, temp_frame_paths, process_frames)
