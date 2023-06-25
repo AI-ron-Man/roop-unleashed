@@ -1,10 +1,12 @@
 {
   "ExpandedNodes": [
     "",
+    "\\installer",
     "\\roop",
     "\\roop\\processors",
-    "\\roop\\processors\\frame"
+    "\\roop\\processors\\frame",
+    "\\venv"
   ],
-  "SelectedNode": "\\roop\\core.py",
+  "SelectedNode": "\\venv",
   "PreviewInSolutionExplorer": false
 }
