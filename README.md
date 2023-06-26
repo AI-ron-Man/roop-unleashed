@@ -50,7 +50,7 @@ For Video face-swapping you also need to have ffmpeg properly installed (having 
 - Run the `windows_run.bat` from the Installer. Edit the .bat file to add your desired commandline arguments 
 - Linux `python run.py (and optional commandline arguments)`
 
-Additional command line arguments are given below. To learn out what they do, check [this guide](https://github.com/s0md3v/roop/wiki/Advanced-Options).
+Additional command line arguments are given below. To find out what they do, check [this guide](https://github.com/s0md3v/roop/wiki/Advanced-Options).
 
 ```
 options:
@@ -91,7 +91,7 @@ After additionally swapping a face looking like Zuckerberg onto the right dude, 
 
 ![finalimage](docs/finaloutput.png)
 
-
+Image Credits: Alamy, Wikipedia, Imago
 
 ### FAQ
 

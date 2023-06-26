@@ -4,5 +4,4 @@ models
 temp
 __pycache__
 *.pth
-*.png
 /start.bat
