@@ -32,6 +32,7 @@ set COMMANDLINE_ARGS=--execution-provider cuda --frame-processor face_swapper fa
 This would set acceleration to NVIDIA Cuda, enable swapping and enhancements and use the latest video encoder. Please look below for an overview of possible commandline arguments.
 
  
+
 For other OS or if you'd rather like to do this by yourself then:
 
 - `git clone https://github.com/C0untFloyd/roop-unleashed`
@@ -41,7 +42,7 @@ Depending on your system and available GPU there are different packages you need
 
 [Using GPU Acceleration](https://github.com/s0md3v/roop/wiki/2.-Acceleration)
 
-For Video face-swapping you also need to have ffmpeg properly installed (having it in your PATH Env).  
+For Video face-swapping you also need to have ffmpeg properly installed (having it in your PATH Env). The windows installer tries to do this automatically.  
 
 
 ### Usage
