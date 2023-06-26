@@ -6,6 +6,7 @@ import site
 import subprocess
 import sys
 
+
 script_dir = os.getcwd()
 
 
@@ -32,31 +33,26 @@ def install_dependencies():
     run_cmd("conda install -y -k git")
     run_cmd("git clone https://github.com/C0untFloyd/roop-unleashed.git")
 
-    # Select your GPU or, choose to run in CPU mode
-    print("Do you have a GPU (Nvidia)?")
-    print("Enter Y for Yes")
-    print()
-    gpuchoice = input("Input> ").lower()
-
-    if gpuchoice == "y":
-        run_cmd("python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 --force-reinstall")
-
     # Install the webui dependencies
     update_dependencies()
 
 
 def update_dependencies():
-    os.chdir("bark-gui")
+    global MY_PATH
+    
+    os.chdir(MY_PATH)
 	# do a hard reset for to update even if there are local changes
     run_cmd("git fetch --all")
-    run_cmd("git reset --hard origin/next")
+    run_cmd("git reset --hard origin/main")
     run_cmd("git pull")
     # Installs/Updates dependencies from all requirements.txt
     run_cmd("python -m pip install -r requirements.txt")
 
 
 def start_app():
-    os.chdir("roop-unleashed")
+    global MY_PATH
+    
+    os.chdir(MY_PATH)
     # forward commandline arguments
     sys.argv.pop(0)
     args = ' '.join(sys.argv)
@@ -64,11 +60,16 @@ def start_app():
 
 
 if __name__ == "__main__":
+    global MY_PATH
+    
+    MY_PATH = "roop-unleashed"
+
+    
     # Verifies we are in a conda environment
     check_env()
 
     # If webui has already been installed, skip and run
-    if not os.path.exists("bark-gui/"):
+    if not os.path.exists(MY_PATH):
         install_dependencies()
     else:
         # moved update from batch to here, because of batch limitations

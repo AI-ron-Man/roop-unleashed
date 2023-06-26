@@ -14,6 +14,7 @@ set CONDA_ROOT_PREFIX=%cd%\installer_files\conda
 set INSTALL_ENV_DIR=%cd%\installer_files\env
 set MINICONDA_DOWNLOAD_URL=https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
 set FFMPEG_DOWNLOAD_URL=https://github.com/GyanD/codexffmpeg/releases/download/2023-06-21-git-1bcb8a7338/ffmpeg-2023-06-21-git-1bcb8a7338-essentials_build.zip
+set INSTALL_FFMPEG_DIR=%cd%\installer_files\ffmpeg
 set conda_exists=F
 
 @rem figure out whether git and conda needs to be installed
@@ -40,15 +41,27 @@ if "%conda_exists%" == "F" (
 if not exist "%INSTALL_ENV_DIR%" (
   echo Packages to install: %PACKAGES_TO_INSTALL%
   call "%CONDA_ROOT_PREFIX%\_conda.exe" create --no-shortcuts -y -k --prefix "%INSTALL_ENV_DIR%" python=3.10 || ( echo. && echo Conda environment creation failed. && goto end )
-  echo Downloading ffmpeg from %FFMPEG_DOWNLOAD_URL% to %INSTALL_DIR%
-  call curl -Lk "%FFMPEG_DOWNLOAD_URL%" > "%INSTALL_DIR%\ffmpeg.zip" || ( echo. && echo ffmpeg failed to download. && goto end )
-  call powershell -command "Expand-Archive -Force" > "%INSTALL_DIR%\ffmpeg.zip" > "%INSTALL_DIR%\ffmpeg"
+)
 
+if not exist "%INSTALL_FFMPEG_DIR%" (
+	echo Downloading ffmpeg from %FFMPEG_DOWNLOAD_URL% to %INSTALL_DIR%
+ 	call curl -Lk "%FFMPEG_DOWNLOAD_URL%" > "%INSTALL_DIR%\ffmpeg.zip" || ( echo. && echo ffmpeg failed to download. && goto end )
+	call powershell -command "Expand-Archive -Force '%INSTALL_DIR%\ffmpeg.zip' '%INSTALL_DIR%\'"
 
+	cd "installer_files"
+	setlocal EnableExtensions EnableDelayedExpansion
+
+	for /f "tokens=*" %%f in ('dir /s /b /ad "ffmpeg*"') do (
+		ren "%%f" "ffmpeg"
+	)
+	endlocal
+	setx PATH "%INSTALL_FFMPEG_DIR%\bin\;%PATH%"
+	echo To use videos, you need to restart roop after this installation. 
+	cd ..
 )
 
 @rem check if conda environment was actually created
-if not exist "%INSTALL_ENV_DIR%\python.exe" ( echo. && echo Conda environment is empty. && goto end )
+if not exist "%INSTALL_ENV_DIR%\python.exe" ( echo. && echo ERROR: Conda environment is empty. && goto end )
 
 @rem activate installer env
 call "%CONDA_ROOT_PREFIX%\condabin\conda.bat" activate "%INSTALL_ENV_DIR%" || ( echo. && echo Miniconda hook not found. && goto end )

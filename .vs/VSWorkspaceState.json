@@ -4,9 +4,8 @@
     "\\installer",
     "\\roop",
     "\\roop\\processors",
-    "\\roop\\processors\\frame",
     "\\venv"
   ],
-  "SelectedNode": "\\venv",
+  "SelectedNode": "\\roop\\core.py",
   "PreviewInSolutionExplorer": false
 }
