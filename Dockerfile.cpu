@@ -1,0 +1,19 @@
+FROM python:3.10
+
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    git \
+    python3 \
+    python3-pip \
+    python3-tk \
+    python-is-python3
+
+WORKDIR /roop-unleashed
+
+COPY requirements.txt requirements.txt
+RUN pip install -r requirements.txt
+
+COPY . .
+
+ENTRYPOINT ["python", "/roop-unleashed/run.py"]
